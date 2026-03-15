@@ -16,15 +16,20 @@ console = Console()
 
 
 def _parse_duration(duration_str: str) -> datetime:
-    """Parse duration string like '7d', '24h', '30m' → future datetime.
+    """Parse duration string like '7d', '24h', '30m', '60s' or plain integer seconds → future datetime.
 
     Supported units: d (days), h (hours), m (minutes), s (seconds).
+    Plain integers (e.g. '60') are interpreted as seconds.
     """
+    stripped = duration_str.strip().lower()
+    # Plain integer → treat as seconds
+    if stripped.isdigit():
+        return datetime.now(timezone.utc) + timedelta(seconds=int(stripped))
     pattern = re.compile(r"^(\d+)([dhms])$")
-    match = pattern.match(duration_str.strip().lower())
+    match = pattern.match(stripped)
     if not match:
         raise typer.BadParameter(
-            f"Invalid duration '{duration_str}'. Use format like '7d', '24h', '30m', '60s'."
+            f"Invalid duration '{duration_str}'. Use format like '7d', '24h', '30m', '60s', or plain seconds like '60'."
         )
     value, unit = int(match.group(1)), match.group(2)
     delta_map = {"d": timedelta(days=value), "h": timedelta(hours=value),

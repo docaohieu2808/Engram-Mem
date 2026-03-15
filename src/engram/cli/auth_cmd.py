@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Callable
+import secrets
+from typing import Callable, Optional
 
 import typer
 from rich.console import Console
@@ -20,11 +21,13 @@ def register(auth_app: typer.Typer, get_config: Callable[[], Config]) -> None:
 
     @auth_app.command("create-key")
     def create_key(
-        name: str = typer.Argument(..., help="Name/label for the API key"),
+        name: Optional[str] = typer.Argument(None, help="Name/label for the API key (auto-generated if omitted)"),
         role: str = typer.Option("agent", "--role", "-r", help="Role: admin | agent | reader"),
         tenant_id: str = typer.Option("default", "--tenant", "-t", help="Tenant ID"),
     ):
         """Generate a new API key and print it. The key is shown only once."""
+        if not name:
+            name = f"key-{secrets.token_hex(4)}"
         try:
             role_enum = Role(role)
         except ValueError:
