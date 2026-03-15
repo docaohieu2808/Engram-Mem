@@ -5,7 +5,6 @@ from datetime import datetime
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from engram.recall.entity_resolver import (
-    has_pronouns,
     resolve_pronouns,
     resolve,
 )
@@ -84,30 +83,6 @@ class TestResolveTemporal:
         today = datetime.now().strftime("%Y-%m-%d")
         assert today in text
 
-
-class TestHasPronouns:
-    """Test pronoun detection."""
-
-    def test_vietnamese_co_ay(self):
-        assert has_pronouns("cô ấy làm nghề gì?") is True
-
-    def test_vietnamese_anh_ay(self):
-        assert has_pronouns("anh ấy ở đâu?") is True
-
-    def test_english_she(self):
-        assert has_pronouns("What does she do?") is True
-
-    def test_english_he(self):
-        assert has_pronouns("He went to the store") is True
-
-    def test_english_they(self):
-        assert has_pronouns("they are coming") is True
-
-    def test_no_pronouns(self):
-        assert has_pronouns("Trâm làm nghề gì?") is False
-
-    def test_no_pronouns_technical(self):
-        assert has_pronouns("Deploy the API to production") is False
 
 
 class TestResolvePronounsLLM:
