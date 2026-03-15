@@ -49,12 +49,17 @@ async def test_remember_batch_uses_single_embedding_call(tmp_path):
     from engram.config import EmbeddingConfig, EpisodicConfig
     from engram.episodic.store import EpisodicStore
 
-    cfg = EpisodicConfig(path=str(tmp_path / "ep"), dedup_enabled=False)
+    cfg = EpisodicConfig(path=str(tmp_path / "ep"), mode="embedded", dedup_enabled=False, fts_db_path=str(tmp_path / "fts.db"))
     emb = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
     store = EpisodicStore(config=cfg, embedding_config=emb)
+    store._embedding_dim = 384
 
     batch = [{"content": f"Item {i}"} for i in range(4)]
-    with patch("engram.episodic.store._get_embeddings", side_effect=lambda m, t, d=None: [[0.1] * 384] * len(t)) as mock_embed:
+    _fake = lambda m, t, d=None: [[0.1] * 384] * len(t)
+    # Patch the module where batch_operations actually imports _get_embeddings from
+    with patch("engram.episodic.embeddings._get_embeddings", side_effect=_fake), \
+         patch("engram.episodic.store._get_embeddings", side_effect=_fake), \
+         patch("engram.episodic.batch_operations._get_embeddings", side_effect=_fake) as mock_embed:
         await store.remember_batch(batch)
 
     # Should be called exactly once (single batch call, not once per item)

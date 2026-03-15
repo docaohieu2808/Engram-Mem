@@ -16,6 +16,14 @@ from engram.semantic.graph import SemanticGraph
 _FIXED_EMBEDDING = [0.1] * 384
 
 
+@pytest.fixture(autouse=True)
+def reset_resource_monitor():
+    """Reset the global ResourceMonitor before each test to avoid tier contamination."""
+    from engram.resource_tier import setup_resource_monitor
+    setup_resource_monitor(failure_threshold=100, cooldown_seconds=0.0)
+    yield
+
+
 def _mock_embeddings(_model: str, texts: list[str], _expected_dim: int | None = None) -> list[list[float]]:
     return [_FIXED_EMBEDDING for _ in texts]
 
@@ -28,17 +36,29 @@ def tmp_config_dir(tmp_path):
 
 @pytest.fixture
 def mock_embeddings():
-    """Patch _get_embeddings to return fixed 384-dim vectors."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings) as m:
+    """Patch _get_embeddings in all modules that import it directly."""
+    with patch("engram.episodic.embeddings._get_embeddings", side_effect=_mock_embeddings), \
+         patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings), \
+         patch("engram.episodic.episodic_crud._get_embeddings", side_effect=_mock_embeddings), \
+         patch("engram.episodic.episodic_search._get_embeddings", side_effect=_mock_embeddings), \
+         patch("engram.episodic.batch_operations._get_embeddings", side_effect=_mock_embeddings) as m:
         yield m
 
 
 @pytest.fixture
 def episodic_store(tmp_path, mock_embeddings):
-    """EpisodicStore backed by tmp path with mocked embeddings."""
-    config = EpisodicConfig(path=str(tmp_path / "episodic"), dedup_enabled=False)
+    """EpisodicStore backed by tmp path with mocked embeddings (embedded Qdrant, no server needed)."""
+    config = EpisodicConfig(
+        path=str(tmp_path / "episodic"),
+        mode="embedded",
+        dedup_enabled=False,
+        fts_db_path=str(tmp_path / "fts.db"),
+    )
     embed_config = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
-    return EpisodicStore(config=config, embedding_config=embed_config)
+    store = EpisodicStore(config=config, embedding_config=embed_config)
+    # Set embedding dim explicitly so embedded Qdrant creates collection with correct size
+    store._embedding_dim = 384
+    return store
 
 
 @pytest.fixture

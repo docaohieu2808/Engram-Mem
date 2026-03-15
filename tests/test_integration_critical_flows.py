@@ -10,6 +10,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from contextlib import ExitStack
+
 from engram.config import EmbeddingConfig, EpisodicConfig, SemanticConfig
 from engram.episodic.store import EpisodicStore
 from engram.models import MemoryType, SemanticEdge, SemanticNode
@@ -18,9 +20,24 @@ from engram.semantic import create_graph
 # Fixed 384-dim embedding for all integration tests
 _FIXED_VEC = [0.1] * 384
 
+_EMBED_TARGETS = [
+    "engram.episodic.embeddings._get_embeddings",
+    "engram.episodic.store._get_embeddings",
+    "engram.episodic.episodic_crud._get_embeddings",
+    "engram.episodic.episodic_search._get_embeddings",
+    "engram.episodic.batch_operations._get_embeddings",
+]
+
 
 def _mock_embeddings(_model, texts, _dim=None):
     return [_FIXED_VEC for _ in texts]
+
+
+def _patch_embeddings():
+    stack = ExitStack()
+    for target in _EMBED_TARGETS:
+        stack.enter_context(patch(target, side_effect=_mock_embeddings))
+    return stack
 
 
 # --- Fixtures ---
@@ -28,10 +45,17 @@ def _mock_embeddings(_model, texts, _dim=None):
 
 @pytest.fixture
 def episodic(tmp_path):
-    cfg = EpisodicConfig(path=str(tmp_path / "episodic"), dedup_enabled=False)
+    cfg = EpisodicConfig(
+        path=str(tmp_path / "episodic"),
+        mode="embedded",
+        dedup_enabled=False,
+        fts_db_path=str(tmp_path / "fts.db"),
+    )
     embed = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
-        yield EpisodicStore(config=cfg, embedding_config=embed)
+    with _patch_embeddings():
+        store = EpisodicStore(config=cfg, embedding_config=embed)
+        store._embedding_dim = 384
+        yield store
 
 
 @pytest.fixture
@@ -47,7 +71,7 @@ def graph(tmp_path):
 class TestRememberRecallFlow:
     async def test_remember_then_recall_by_content(self, episodic):
         """Store memory → search by similar content → found."""
-        with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+        with _patch_embeddings():
             mid = await episodic.remember(
                 "Deployed v3.0 to staging at 15:00",
                 memory_type=MemoryType.FACT,
@@ -56,7 +80,7 @@ class TestRememberRecallFlow:
             )
         assert mid
 
-        with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+        with _patch_embeddings():
             results = await episodic.search("deployment staging", limit=5)
         assert len(results) >= 1
         assert any("Deployed" in r.content for r in results)
@@ -66,7 +90,7 @@ class TestRememberRecallFlow:
         from datetime import datetime, timedelta, timezone
 
         past = datetime.now(timezone.utc) - timedelta(hours=2)
-        with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+        with _patch_embeddings():
             await episodic.remember("Ephemeral data", expires_at=past)
             await episodic.remember("Permanent data")
 
@@ -78,18 +102,18 @@ class TestRememberRecallFlow:
 
     async def test_remember_multiple_types_then_filter(self, episodic):
         """Store different memory types → search returns correct types."""
-        with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+        with _patch_embeddings():
             await episodic.remember("Never deploy on Friday", memory_type=MemoryType.DECISION)
             await episodic.remember("PostgreSQL uses port 5432", memory_type=MemoryType.FACT)
             await episodic.remember("User prefers dark mode", memory_type=MemoryType.PREFERENCE)
 
-        with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+        with _patch_embeddings():
             results = await episodic.search("deploy Friday", limit=10)
         assert len(results) >= 1
 
     async def test_stats_reflect_all_memories(self, episodic):
         """After N remembers, stats.count >= N."""
-        with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+        with _patch_embeddings():
             for i in range(5):
                 await episodic.remember(f"Memory number {i}")
 
@@ -104,7 +128,7 @@ class TestRememberRecallFlow:
 class TestThinkFlow:
     async def test_think_returns_answer_from_memories(self, episodic, graph):
         """Store context → think() synthesizes answer from memories."""
-        with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+        with _patch_embeddings():
             await episodic.remember("API latency increased 3x after Redis upgrade")
             await episodic.remember("Rolled back Redis to v6.2, latency normalized")
 
@@ -142,7 +166,7 @@ class TestThinkFlow:
 
     async def test_summarize_recent_memories(self, episodic, graph):
         """Store several memories → summarize() produces summary."""
-        with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+        with _patch_embeddings():
             await episodic.remember("Sprint review went well")
             await episodic.remember("Bug in auth module fixed")
             await episodic.remember("New hire starts Monday")
@@ -173,7 +197,7 @@ class TestIngestFlow:
             {"role": "assistant", "content": "PostgreSQL is recommended for relational data."},
         ]
 
-        with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+        with _patch_embeddings():
             for msg in messages:
                 if msg["content"]:
                     await episodic.remember(msg["content"])
@@ -192,7 +216,7 @@ class TestIngestFlow:
 
     async def test_ingest_episodic_decoupled_from_llm(self, episodic):
         """Episodic store works even if LLM extraction fails."""
-        with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+        with _patch_embeddings():
             mid = await episodic.remember("This should work without LLM")
 
         assert mid
@@ -287,7 +311,7 @@ class TestMCPFlow:
         )
         assert "Remembered" in result
 
-        with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+        with _patch_embeddings():
             recall_result = await tools["engram_recall"]("database migration")
         assert recall_result  # non-empty response
 

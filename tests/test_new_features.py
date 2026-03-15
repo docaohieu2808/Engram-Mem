@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -14,26 +15,59 @@ from engram.models import EpisodicMemory, MemoryType
 
 _FIXED_EMBEDDING = [0.1] * 384
 
+_EMBED_TARGETS = [
+    "engram.episodic.embeddings._get_embeddings",
+    "engram.episodic.store._get_embeddings",
+    "engram.episodic.episodic_crud._get_embeddings",
+    "engram.episodic.episodic_search._get_embeddings",
+    "engram.episodic.batch_operations._get_embeddings",
+]
+
 
 def _fake_embeddings(_model, texts, _expected_dim=None):
     return [_FIXED_EMBEDDING for _ in texts]
 
 
+def _patch_embeddings():
+    """Patch _get_embeddings in all importing modules."""
+    stack = ExitStack()
+    for target in _EMBED_TARGETS:
+        stack.enter_context(patch(target, side_effect=_fake_embeddings))
+    return stack
+
+
 @pytest.fixture
 def store(tmp_path):
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
-        cfg = EpisodicConfig(path=str(tmp_path / "episodic"), dedup_enabled=False)
-        emb = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
-        yield EpisodicStore(config=cfg, embedding_config=emb)
+    cfg = EpisodicConfig(
+        path=str(tmp_path / "episodic"),
+        mode="embedded",
+        dedup_enabled=False,
+        fts_db_path=str(tmp_path / "fts.db"),
+    )
+    emb = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
+    with _patch_embeddings():
+        s = EpisodicStore(config=cfg, embedding_config=emb)
+        s._embedding_dim = 384
+        yield s
 
 
 @pytest.fixture
 def ns_store(tmp_path):
-    """Factory fixture returning a function that creates stores with specified namespaces."""
+    """Factory fixture returning a function that creates stores with specified namespaces.
+
+    Each namespace gets its own Qdrant storage directory to avoid concurrent access errors.
+    """
     def _make(namespace: str):
-        cfg = EpisodicConfig(path=str(tmp_path / "episodic"), dedup_enabled=False)
+        cfg = EpisodicConfig(
+            path=str(tmp_path / f"episodic_{namespace}"),
+            mode="embedded",
+            dedup_enabled=False,
+            fts_db_path=str(tmp_path / f"fts_{namespace}.db"),
+        )
         emb = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
-        return EpisodicStore(config=cfg, embedding_config=emb, namespace=namespace)
+        s = EpisodicStore(config=cfg, embedding_config=emb, namespace=namespace)
+        s._embedding_dim = 384
+        return s
     return _make
 
 
@@ -44,7 +78,7 @@ def ns_store(tmp_path):
 async def test_expired_memory_filtered_from_search(store):
     """Expired memories are not returned by search()."""
     past = datetime.now(timezone.utc) - timedelta(hours=1)
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         await store.remember("This memory is expired", expires_at=past)
         results = await store.search("expired memory")
     assert all("expired" not in r.content for r in results)
@@ -54,7 +88,7 @@ async def test_expired_memory_filtered_from_search(store):
 async def test_non_expired_memory_visible_in_search(store):
     """Non-expired memories with future expires_at are returned by search()."""
     future = datetime.now(timezone.utc) + timedelta(hours=24)
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         await store.remember("Future expiry memory", expires_at=future)
         results = await store.search("future expiry memory")
     assert any("Future expiry" in r.content for r in results)
@@ -64,7 +98,7 @@ async def test_non_expired_memory_visible_in_search(store):
 async def test_cleanup_expired_returns_count(store):
     """cleanup_expired() deletes expired memories and returns count."""
     past = datetime.now(timezone.utc) - timedelta(hours=1)
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         await store.remember("Expired one", expires_at=past)
         await store.remember("Expired two", expires_at=past)
         await store.remember("Still valid")
@@ -76,7 +110,7 @@ async def test_cleanup_expired_returns_count(store):
 async def test_cleanup_expired_removes_from_store(store):
     """After cleanup_expired(), collection count decreases by expired count."""
     past = datetime.now(timezone.utc) - timedelta(seconds=1)
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         await store.remember("Expired", expires_at=past)
         await store.remember("Valid")
     await store.cleanup_expired()
@@ -87,7 +121,7 @@ async def test_cleanup_expired_removes_from_store(store):
 @pytest.mark.asyncio
 async def test_cleanup_no_expired_returns_zero(store):
     """cleanup_expired() returns 0 when no memories are expired."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         await store.remember("Normal memory")
     result = await store.cleanup_expired()
     assert result == 0
@@ -99,7 +133,7 @@ async def test_cleanup_no_expired_returns_zero(store):
 @pytest.mark.asyncio
 async def test_tags_stored_and_retrieved(store):
     """Tags are stored in metadata and retrieved as list on the memory object."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         mem_id = await store.remember("Deploy to prod", tags=["deploy", "prod"])
         mem = await store.get(mem_id)
     assert mem is not None
@@ -110,7 +144,7 @@ async def test_tags_stored_and_retrieved(store):
 @pytest.mark.asyncio
 async def test_tags_filter_in_search(store):
     """Search with tags filter returns only memories that contain all specified tags."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         await store.remember("Deploy prod release", tags=["deploy", "prod"])
         await store.remember("Deploy staging build", tags=["deploy", "staging"])
         await store.remember("Unrelated memory")
@@ -122,7 +156,7 @@ async def test_tags_filter_in_search(store):
 @pytest.mark.asyncio
 async def test_tags_filter_excludes_non_matching(store):
     """Memories without the required tag are excluded from search results."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         await store.remember("Has tag alpha", tags=["alpha"])
         await store.remember("Has tag beta", tags=["beta"])
         results = await store.search("tag", tags=["alpha"])
@@ -133,7 +167,7 @@ async def test_tags_filter_excludes_non_matching(store):
 @pytest.mark.asyncio
 async def test_empty_tags_default(store):
     """Memory stored without tags has empty tags list."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         mem_id = await store.remember("No tags here")
         mem = await store.get(mem_id)
     assert mem is not None
@@ -146,7 +180,7 @@ async def test_empty_tags_default(store):
 @pytest.mark.asyncio
 async def test_namespace_isolation(tmp_path, ns_store):
     """Memories in different namespaces are isolated from each other."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         store_a = ns_store("alpha")
         store_b = ns_store("beta")
         await store_a.remember("Memory in alpha namespace")
@@ -157,7 +191,7 @@ async def test_namespace_isolation(tmp_path, ns_store):
 @pytest.mark.asyncio
 async def test_namespace_sees_own_data(tmp_path, ns_store):
     """A namespace can retrieve its own memories."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         store_a = ns_store("alpha")
         await store_a.remember("Alpha only memory")
         results = await store_a.search("alpha memory")
@@ -166,20 +200,22 @@ async def test_namespace_sees_own_data(tmp_path, ns_store):
 
 @pytest.mark.asyncio
 async def test_namespace_collection_name(tmp_path):
-    """EpisodicStore uses namespace-specific collection name."""
+    """EpisodicStore uses namespace-specific collection name (no prefix)."""
     cfg = EpisodicConfig(path=str(tmp_path / "ep"), dedup_enabled=False)
     emb = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
     store = EpisodicStore(config=cfg, embedding_config=emb, namespace="myns")
-    assert store.COLLECTION_NAME == "engram_myns"
+    # _collection_name returns namespace as-is (no engram_ prefix)
+    assert store.COLLECTION_NAME == "myns"
 
 
 @pytest.mark.asyncio
 async def test_default_namespace_collection_name(tmp_path):
-    """Default namespace uses 'engram_default' collection name."""
+    """Default namespace uses 'default' collection name."""
     cfg = EpisodicConfig(path=str(tmp_path / "ep"), dedup_enabled=False)
     emb = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
     store = EpisodicStore(config=cfg, embedding_config=emb)
-    assert store.COLLECTION_NAME == "engram_default"
+    # Default namespace is "default" (from config)
+    assert store.COLLECTION_NAME == "default"
 
 
 # --- Summarize ---
@@ -200,7 +236,7 @@ async def test_summarize_calls_llm(store):
     """summarize() calls LLM with recent memories and returns its response."""
     from engram.reasoning.engine import ReasoningEngine
 
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         await store.remember("Deployed new version")
         await store.remember("Fixed critical bug")
 
@@ -221,7 +257,7 @@ async def test_summarize_save_stores_memory(store):
     """summarize(save=True) stores the summary as a new memory with type=context."""
     from engram.reasoning.engine import ReasoningEngine
 
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         await store.remember("Original memory A")
         await store.remember("Original memory B")
 
@@ -232,11 +268,11 @@ async def test_summarize_save_stores_memory(store):
     mock_response.choices[0].message.content = "Summary: two memories recorded."
 
     with patch("litellm.acompletion", new=AsyncMock(return_value=mock_response)):
-        with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+        with _patch_embeddings():
             await engine.summarize(n=5, save=True)
 
     # Verify a context-type memory was saved
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         results = await store.search("Summary")
     context_mems = [r for r in results if r.memory_type == MemoryType.CONTEXT]
     assert len(context_mems) >= 1

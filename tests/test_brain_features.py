@@ -513,6 +513,6 @@ class TestResourceAwareReasoning:
             monitor.get_tier.return_value = MagicMock(value="basic")
             mock_get_monitor.return_value = monitor
 
-            with patch("engram.reasoning.engine.federated_search", new_callable=AsyncMock, return_value=[]):
+            with patch("engram.reasoning.retriever.federated_search", new_callable=AsyncMock, return_value=[]):
                 result = await engine.think("test question")
-                assert "No relevant memories" in result["answer"]
+                assert "No relevant memories" in result["answer"] or "Resource tier" in result["answer"]

@@ -6,6 +6,7 @@ Uses mocked litellm.acompletion and real (tmp) episodic/semantic stores.
 from __future__ import annotations
 
 import asyncio
+from contextlib import ExitStack
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -21,9 +22,37 @@ from engram.models import MemoryType
 
 _FIXED_EMBEDDING = [0.1] * 384
 
+_EMBED_TARGETS = [
+    "engram.episodic.embeddings._get_embeddings",
+    "engram.episodic.store._get_embeddings",
+    "engram.episodic.episodic_crud._get_embeddings",
+    "engram.episodic.episodic_search._get_embeddings",
+    "engram.episodic.batch_operations._get_embeddings",
+]
+
 
 def _fake_embeddings(_model, texts, _expected_dim=None):
     return [_FIXED_EMBEDDING for _ in texts]
+
+
+def _patch_embeddings():
+    """Patch _get_embeddings in all importing modules."""
+    stack = ExitStack()
+    for target in _EMBED_TARGETS:
+        stack.enter_context(patch(target, side_effect=_fake_embeddings))
+    return stack
+
+
+def _patch_client_dim():
+    """Patch EngramClient._ensure_stores to set _embedding_dim=384 after store init."""
+    _real = EngramClient._ensure_stores
+
+    async def _wrapper(self):
+        await _real(self)
+        if self._episodic is not None:
+            self._episodic._embedding_dim = 384
+
+    return patch.object(EngramClient, "_ensure_stores", _wrapper)
 
 
 def _make_litellm_response(content: str = "Test response"):
@@ -36,7 +65,7 @@ def _make_litellm_response(content: str = "Test response"):
 @pytest.fixture
 def tmp_client(tmp_path):
     """EngramClient backed by tmp stores with mocked embeddings and config."""
-    episodic_cfg = EpisodicConfig(path=str(tmp_path / "episodic"), dedup_enabled=False)
+    episodic_cfg = EpisodicConfig(path=str(tmp_path / "episodic"), mode="embedded", dedup_enabled=False, fts_db_path=str(tmp_path / "fts.db"))
     semantic_cfg = SemanticConfig(path=str(tmp_path / "semantic.db"))
     embed_cfg = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
 
@@ -46,8 +75,7 @@ def tmp_client(tmp_path):
     cfg.embedding = embed_cfg
     cfg.llm.model = "gemini/gemini-2.0-flash"
 
-    with patch("engram.client.load_config", return_value=cfg), \
-         patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with patch("engram.client.load_config", return_value=cfg), _patch_embeddings(), _patch_client_dim():
         client = EngramClient(namespace="test")
         yield client
 
@@ -73,7 +101,7 @@ async def test_chat_calls_litellm(tmp_client):
 async def test_chat_auto_recall_injects_memories(tmp_client):
     """chat() injects stored memories as system context before LLM call."""
     # Pre-store a memory
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         await tmp_client.remember("Python is the preferred language", priority=7)
 
     messages = [{"role": "user", "content": "What language should we use?"}]
@@ -163,7 +191,7 @@ async def test_chat_auto_extract_stores_facts(tmp_client):
         await asyncio.sleep(0.05)
 
     # Verify memory was stored
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         results = await tmp_client.recall("PostgreSQL decision")
     assert len(results) >= 1
 
@@ -175,7 +203,7 @@ async def test_chat_auto_extract_stores_facts(tmp_client):
 @pytest.mark.asyncio
 async def test_remember_stores_memory(tmp_client):
     """remember() stores a memory and recall() finds it."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         mem_id = await tmp_client.remember("Deploy on Fridays is forbidden", priority=8)
         assert isinstance(mem_id, str) and len(mem_id) > 0
 
@@ -186,7 +214,7 @@ async def test_remember_stores_memory(tmp_client):
 @pytest.mark.asyncio
 async def test_recall_searches_memories(tmp_client):
     """recall() returns stored memories matching the query."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         await tmp_client.remember("Use Python 3.12", memory_type="decision", priority=7)
         results = await tmp_client.recall("Python version", limit=3)
 
@@ -198,14 +226,14 @@ async def test_recall_searches_memories(tmp_client):
 @pytest.mark.asyncio
 async def test_think_uses_reasoning(tmp_client):
     """think() delegates to ReasoningEngine and returns a string answer."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         await tmp_client.remember("The project uses FastAPI", priority=6)
 
     fake_answer = "The project uses FastAPI."
     engine_mock = MagicMock()
     engine_mock.think = AsyncMock(return_value=fake_answer)
 
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         await tmp_client._ensure_engine()
     tmp_client._engine = engine_mock
 
@@ -221,7 +249,7 @@ async def test_think_uses_reasoning(tmp_client):
 @pytest.mark.asyncio
 async def test_extract_deduplication(tmp_client):
     """_dedup_memories skips items with high word overlap to existing memories."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         # Store a memory first
         await tmp_client.remember("User prefers dark mode in the UI", priority=6)
 
@@ -245,7 +273,7 @@ async def test_extract_deduplication(tmp_client):
 
 def test_sync_wrappers_work(tmp_client):
     """Sync wrappers (remember_sync, recall_sync) execute without event loop errors."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with _patch_embeddings():
         mem_id = tmp_client.remember_sync("Sync test memory", priority=5)
         assert isinstance(mem_id, str)
 
@@ -260,8 +288,8 @@ def test_sync_wrappers_work(tmp_client):
 @pytest.mark.asyncio
 async def test_namespace_isolation(tmp_path):
     """Two clients with different namespaces have separate memory stores."""
-    episodic_cfg_a = EpisodicConfig(path=str(tmp_path / "episodic"), dedup_enabled=False)
-    episodic_cfg_b = EpisodicConfig(path=str(tmp_path / "episodic"), dedup_enabled=False)
+    episodic_cfg_a = EpisodicConfig(path=str(tmp_path / "episodic_a"), mode="embedded", dedup_enabled=False, fts_db_path=str(tmp_path / "fts_a.db"))
+    episodic_cfg_b = EpisodicConfig(path=str(tmp_path / "episodic_b"), mode="embedded", dedup_enabled=False, fts_db_path=str(tmp_path / "fts_b.db"))
     semantic_cfg = SemanticConfig(path=str(tmp_path / "semantic.db"))
     embed_cfg = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
 
@@ -273,14 +301,12 @@ async def test_namespace_isolation(tmp_path):
         cfg.llm.model = "gemini/gemini-2.0-flash"
         return cfg
 
-    with patch("engram.client.load_config", return_value=make_cfg(episodic_cfg_a)), \
-         patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with patch("engram.client.load_config", return_value=make_cfg(episodic_cfg_a)), _patch_embeddings(), _patch_client_dim():
         client_a = EngramClient(namespace="agent-a")
         await client_a.remember("Secret of agent A", priority=8)
         results_a = await client_a.recall("Secret")
 
-    with patch("engram.client.load_config", return_value=make_cfg(episodic_cfg_b)), \
-         patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with patch("engram.client.load_config", return_value=make_cfg(episodic_cfg_b)), _patch_embeddings(), _patch_client_dim():
         client_b = EngramClient(namespace="agent-b")
         results_b = await client_b.recall("Secret")
 
@@ -348,7 +374,7 @@ def test_high_overlap_allows_distinct():
 @pytest.mark.asyncio
 async def test_context_manager_closes_on_exit(tmp_path):
     """async with EngramClient closes resources on exit."""
-    episodic_cfg = EpisodicConfig(path=str(tmp_path / "episodic"), dedup_enabled=False)
+    episodic_cfg = EpisodicConfig(path=str(tmp_path / "episodic"), mode="embedded", dedup_enabled=False, fts_db_path=str(tmp_path / "fts.db"))
     semantic_cfg = SemanticConfig(path=str(tmp_path / "semantic.db"))
     embed_cfg = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
     cfg = MagicMock()
@@ -357,8 +383,7 @@ async def test_context_manager_closes_on_exit(tmp_path):
     cfg.embedding = embed_cfg
     cfg.llm.model = "gemini/gemini-2.0-flash"
 
-    with patch("engram.client.load_config", return_value=cfg), \
-         patch("engram.episodic.store._get_embeddings", side_effect=_fake_embeddings):
+    with patch("engram.client.load_config", return_value=cfg), _patch_embeddings(), _patch_client_dim():
         async with EngramClient(namespace="ctx-test") as client:
             await client.remember("context manager test", priority=5)
         # After exit, stores should be cleared

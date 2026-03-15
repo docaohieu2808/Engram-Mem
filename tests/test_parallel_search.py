@@ -252,6 +252,7 @@ class TestMemoryScore:
         mem.metadata = {}
         mem.confidence = 0.2
         mem.consolidated_into = None
+        mem.source = ""
 
         episodic = AsyncMock()
         episodic.search = AsyncMock(return_value=[mem])
@@ -324,6 +325,7 @@ class TestLexicalFallback:
         mem.metadata = {}
         mem.confidence = 0.5
         mem.consolidated_into = None
+        mem.source = ""
 
         episodic = AsyncMock()
         episodic.search = AsyncMock(return_value=[mem])

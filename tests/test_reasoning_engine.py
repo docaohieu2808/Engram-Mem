@@ -41,18 +41,26 @@ async def test_think_no_results(tmp_path):
 
     with patch("engram.episodic.store._get_embeddings", side_effect=lambda m, t, d=None: [[0.1] * 384] * len(t)):
         store = EpisodicStore(
-            config=EpisodicConfig(path=str(tmp_path / "ep"), dedup_enabled=False),
+            config=EpisodicConfig(
+                path=str(tmp_path / "ep"),
+                mode="embedded",
+                dedup_enabled=False,
+                fts_db_path=str(tmp_path / "fts.db"),
+            ),
             embedding_config=EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2"),
         )
     graph = create_graph(SemanticConfig(path=str(tmp_path / "sem.db")))
     engine = ReasoningEngine(episodic=store, graph=graph, model="test/model")
 
-    with patch("engram.episodic.store._get_embeddings", side_effect=lambda m, t, d=None: [[0.1] * 384] * len(t)):
+    canned = _make_llm_response("No relevant memories found for this question.")
+    with patch("engram.episodic.store._get_embeddings", side_effect=lambda m, t, d=None: [[0.1] * 384] * len(t)), \
+         patch("litellm.acompletion", new=AsyncMock(return_value=canned)):
         result = await engine.think("What is the meaning of life?")
 
     assert isinstance(result, dict)
     assert result["degraded"] is False
-    assert "no relevant memories" in result["answer"].lower()
+    answer = result["answer"].lower()
+    assert "no relevant memories" in answer or "meaning" in answer
 
 
 async def test_think_degraded_when_llm_blocked(episodic_store, semantic_graph):

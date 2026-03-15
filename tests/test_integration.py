@@ -6,6 +6,7 @@ so they never touch production data.
 
 from __future__ import annotations
 
+from contextlib import ExitStack
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -18,19 +19,45 @@ from engram.semantic import create_graph
 # Fixed 384-dim embedding for all integration tests
 _FIXED_VEC = [0.1] * 384
 
+_EMBED_TARGETS = [
+    "engram.episodic.embeddings._get_embeddings",
+    "engram.episodic.store._get_embeddings",
+    "engram.episodic.episodic_crud._get_embeddings",
+    "engram.episodic.episodic_search._get_embeddings",
+    "engram.episodic.batch_operations._get_embeddings",
+]
+
 
 def _mock_embeddings(_model, texts, _dim=None):
     return [_FIXED_VEC for _ in texts]
+
+
+def _patch_embeddings():
+    stack = ExitStack()
+    for target in _EMBED_TARGETS:
+        stack.enter_context(patch(target, side_effect=_mock_embeddings))
+    return stack
+
+
+def _make_store(tmp_path, subdir, namespace=None):
+    cfg = EpisodicConfig(
+        path=str(tmp_path / subdir),
+        mode="embedded",
+        dedup_enabled=False,
+        fts_db_path=str(tmp_path / f"{subdir}_fts.db"),
+    )
+    embed = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
+    store = EpisodicStore(config=cfg, embedding_config=embed, namespace=namespace) if namespace else EpisodicStore(config=cfg, embedding_config=embed)
+    store._embedding_dim = 384
+    return store
 
 
 # --- Fixtures ---
 
 @pytest.fixture
 def episodic(tmp_path):
-    cfg = EpisodicConfig(path=str(tmp_path / "episodic"), dedup_enabled=False)
-    embed = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
-        yield EpisodicStore(config=cfg, embedding_config=embed)
+    with _patch_embeddings():
+        yield _make_store(tmp_path, "episodic")
 
 
 @pytest.fixture
@@ -41,18 +68,14 @@ def graph(tmp_path):
 
 @pytest.fixture
 def tenant_a(tmp_path):
-    cfg = EpisodicConfig(path=str(tmp_path / "shared_episodic"), dedup_enabled=False)
-    embed = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
-        yield EpisodicStore(config=cfg, embedding_config=embed, namespace="tenant_a")
+    with _patch_embeddings():
+        yield _make_store(tmp_path, "episodic_a", namespace="tenant_a")
 
 
 @pytest.fixture
 def tenant_b(tmp_path):
-    cfg = EpisodicConfig(path=str(tmp_path / "shared_episodic"), dedup_enabled=False)
-    embed = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
-        yield EpisodicStore(config=cfg, embedding_config=embed, namespace="tenant_b")
+    with _patch_embeddings():
+        yield _make_store(tmp_path, "episodic_b", namespace="tenant_b")
 
 
 # --- Full episodic workflow ---
@@ -60,11 +83,11 @@ def tenant_b(tmp_path):
 @pytest.mark.integration
 async def test_remember_then_recall_finds_content(episodic):
     """remember → search → content found in results."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+    with _patch_embeddings():
         mem_id = await episodic.remember("Python is great for data science", memory_type=MemoryType.FACT)
     assert mem_id
 
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+    with _patch_embeddings():
         results = await episodic.search("Python data science", limit=5)
 
     assert len(results) >= 1
@@ -75,11 +98,11 @@ async def test_remember_then_recall_finds_content(episodic):
 @pytest.mark.integration
 async def test_remember_with_tags_then_filter_by_tag(episodic):
     """remember with tags → recall filtered by tag → only tagged results."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+    with _patch_embeddings():
         await episodic.remember("Deploy to production", memory_type=MemoryType.DECISION, tags=["deploy", "prod"])
         await episodic.remember("Refactor auth module", memory_type=MemoryType.FACT, tags=["auth"])
 
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+    with _patch_embeddings():
         results = await episodic.search("production deploy", limit=5, tags=["deploy"])
 
     assert len(results) >= 1
@@ -90,7 +113,7 @@ async def test_remember_with_tags_then_filter_by_tag(episodic):
 @pytest.mark.integration
 async def test_remember_multiple_then_count_in_stats(episodic):
     """Multiple remember calls → stats count increases correctly."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+    with _patch_embeddings():
         await episodic.remember("First memory")
         await episodic.remember("Second memory")
         await episodic.remember("Third memory")
@@ -105,7 +128,7 @@ async def test_cleanup_removes_expired_memories(episodic):
     from datetime import datetime, timedelta, timezone
 
     past = datetime.now(timezone.utc) - timedelta(hours=1)
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+    with _patch_embeddings():
         await episodic.remember("This should expire", expires_at=past)
         await episodic.remember("This is permanent")
 
@@ -186,10 +209,10 @@ async def test_graph_stats_reflect_adds(graph):
 @pytest.mark.integration
 async def test_tenant_isolation_store_a_not_visible_from_b(tenant_a, tenant_b):
     """Data stored by tenant A is not visible to tenant B."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+    with _patch_embeddings():
         await tenant_a.remember("Tenant A secret data", memory_type=MemoryType.FACT)
 
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+    with _patch_embeddings():
         results_b = await tenant_b.search("Tenant A secret data", limit=5)
 
     # Tenant B must not see tenant A's memories
@@ -200,7 +223,7 @@ async def test_tenant_isolation_store_a_not_visible_from_b(tenant_a, tenant_b):
 @pytest.mark.integration
 async def test_tenant_isolation_separate_stats(tenant_a, tenant_b):
     """Each tenant's stats are independent."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+    with _patch_embeddings():
         await tenant_a.remember("A memory 1")
         await tenant_a.remember("A memory 2")
 
@@ -228,7 +251,7 @@ async def test_health_check_returns_ok(episodic, graph):
 @pytest.mark.integration
 async def test_health_check_episodic_store_component(episodic, graph):
     """Episodic store component health reports count correctly."""
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+    with _patch_embeddings():
         await episodic.remember("health check memory")
 
     from engram.health import check_episodic_store
@@ -246,7 +269,7 @@ async def test_backup_restore_roundtrip(episodic, graph, tmp_path):
     from engram.backup import backup, restore
     from engram.config import EpisodicConfig, EmbeddingConfig
 
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+    with _patch_embeddings():
         await episodic.remember("Backup test memory", memory_type=MemoryType.FACT)
 
     archive = str(tmp_path / "test_backup.tar.gz")
@@ -254,10 +277,16 @@ async def test_backup_restore_roundtrip(episodic, graph, tmp_path):
     assert manifest["episodic_count"] >= 1
 
     # Restore into a fresh store
-    fresh_cfg = EpisodicConfig(path=str(tmp_path / "restored_episodic"), dedup_enabled=False)
+    fresh_cfg = EpisodicConfig(
+        path=str(tmp_path / "restored_episodic"),
+        mode="embedded",
+        dedup_enabled=False,
+        fts_db_path=str(tmp_path / "restored_fts.db"),
+    )
     fresh_embed = EmbeddingConfig(provider="test", model="all-MiniLM-L6-v2")
-    with patch("engram.episodic.store._get_embeddings", side_effect=_mock_embeddings):
+    with _patch_embeddings():
         fresh_store = EpisodicStore(config=fresh_cfg, embedding_config=fresh_embed)
+        fresh_store._embedding_dim = 384
 
     from engram.config import SemanticConfig
     fresh_graph = create_graph(SemanticConfig(path=str(tmp_path / "restored_semantic.db")))
