@@ -130,6 +130,8 @@ async def do_ingest_messages(
 
         # Build provenance metadata
         provenance_meta: dict[str, str] = {}
+        if role:
+            provenance_meta["role"] = role
         if source:
             provenance_meta["provenance_agent"] = source
         if session_id:
@@ -150,7 +152,8 @@ async def do_ingest_messages(
             if per_content:
                 await episodic.remember(content, memory_type=mt, entities=per_content, source=source, priority=pri, metadata=provenance_meta)
                 episodic_count += 1
-            elif role == "user":
+            else:
+                # Store all messages even without entity matches (user + assistant)
                 await episodic.remember(content, memory_type=mt, source=source, priority=pri, metadata=provenance_meta)
                 episodic_count += 1
         else:

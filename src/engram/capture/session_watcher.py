@@ -38,23 +38,11 @@ _SKIP_PATTERNS = [
     re.compile(r"HEARTBEAT_OK.*Current time:", re.DOTALL),
 ]
 
-# Assistant narration patterns — low-value "thinking out loud" text blocks
-_ASSISTANT_NARRATION_PATTERNS = [
-    # "Let me check/look/read/..." anywhere in text
-    re.compile(r"\b[Ll]et me (check|look|read|see|search|find|examine|inspect|verify|review|understand|investigate|explore|analyze|test|try|run|start|continue|also|first|quickly)\b", re.IGNORECASE),
-    # "I'll/I need to check/look/..."
-    re.compile(r"\bI('ll| will| need to| should| can) (check|look|read|search|find|examine|verify|review|understand|investigate|explore|analyze|test|try|run|start|also)\b", re.IGNORECASE),
-    # Status narration: "Good — ...", "Now I see...", "Commands work."
-    re.compile(r"^(Good|Great|OK|Perfect|Alright|Now|First|Next|Hmm|Interesting)\b.*\b(let me|I('ll| will| see| need| have| can))\b", re.IGNORECASE),
-    # Progress narration: "Checking...", "Looking at..."
-    re.compile(r"^(Checking|Looking|Reading|Searching|Finding|Verifying|Running|Testing|Starting|Installing|Updating|Creating|Building|Compiling)\b", re.IGNORECASE),
-    # "Now I have/see/understand..."
-    re.compile(r"^Now I (have|see|understand|know|need)\b", re.IGNORECASE),
-    # Tool narration: "The file is...", "The output shows..."
-    re.compile(r"^The (file|output|error|issue|problem|command|result|log|test|build|server|service|config|code) (is|shows|says|indicates|reveals|confirms|works|doesn't)\b", re.IGNORECASE),
-    # Short acknowledgments and transitions
-    re.compile(r"^(Done|Fixed|Updated|Installed|Created|Works|Verified|Confirmed)\.\s*$", re.IGNORECASE),
-]
+# Assistant narration patterns — REMOVED (2026-03-16)
+# Agent narration ("Let me check...", "I'll fix...") contains valuable context:
+# what the agent was doing, where, and why. Useful for recall continuity.
+# Only skip very short messages (<20 chars) which are pure noise.
+_ASSISTANT_NARRATION_PATTERNS: list[re.Pattern] = []
 
 # Roles we capture — skip toolCall, toolResult, session, thinking_level_change, etc.
 _CAPTURE_ROLES = {"user", "assistant"}
