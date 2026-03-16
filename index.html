@@ -3,1320 +3,237 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Engram — Memory Traces for AI Agents</title>
-  <meta name="description" content="Dual-memory system combining episodic (vector) + semantic (graph) memory. Like how humans remember. Works with Claude Code, Cursor, OpenClaw, any MCP client.">
+  <title>Engram — Persistent memory for AI agents</title>
+  <meta name="description" content="Dual-memory system combining episodic (vector) + semantic (graph) memory. Works with Claude Code, Cursor, OpenClaw, any MCP client.">
   <meta name="keywords" content="AI memory, MCP, Claude Code, vector database, knowledge graph, open source">
-
-  <!-- Open Graph -->
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Engram — Memory Traces for AI Agents">
+  <meta property="og:title" content="Engram — Persistent memory for AI agents">
   <meta property="og:description" content="Dual-memory AI system: episodic (vector) + semantic (graph). Entity-gated ingestion. Works with any MCP client. Open source.">
   <meta property="og:url" content="https://docaohieu2808.github.io/Engram-Mem/">
   <meta property="og:image" content="https://docaohieu2808.github.io/Engram-Mem/og-image.png">
   <meta property="og:site_name" content="Engram">
-
-  <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Engram — Memory Traces for AI Agents">
+  <meta name="twitter:title" content="Engram — Persistent memory for AI agents">
   <meta name="twitter:description" content="Dual-memory AI system: episodic (vector) + semantic (graph). Entity-gated ingestion. Works with any MCP client.">
   <meta name="twitter:image" content="https://docaohieu2808.github.io/Engram-Mem/og-image.png">
-
+  <link rel="icon" type="image/png" href="assets/favicon-32x32.png" sizes="32x32">
+  <link rel="icon" type="image/png" href="assets/favicon-16x16.png" sizes="16x16">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    /* ============================================
-       RESET & BASE
-       ============================================ */
-    *, *::before, *::after {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg-primary: #06080f;
-      --bg-secondary: #0c1022;
-      --bg-card: #111631;
-      --bg-card-hover: #161d40;
-      --bg-code: #0a0e1a;
-
-      --text-primary: #e8ecf4;
-      --text-secondary: #8b92a8;
-      --text-muted: #5a6178;
-
-      --accent: #6c5ce7;
-      --accent-light: #a388ee;
-      --accent-glow: rgba(108, 92, 231, 0.25);
-      --accent-blue: #4fc3f7;
-      --accent-cyan: #00e5ff;
-      --accent-green: #69f0ae;
-
-      --border: #1a2040;
-      --border-light: #252d50;
-
-      --radius: 12px;
-      --radius-sm: 8px;
-      --radius-lg: 16px;
-
-      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
-
-      --max-width: 1120px;
-      --section-gap: 120px;
-    }
-
-    html {
-      scroll-behavior: smooth;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-
-    body {
-      font-family: var(--font-sans);
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      line-height: 1.6;
-      overflow-x: hidden;
-    }
-
-    a {
-      color: var(--accent-light);
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-    a:hover {
-      color: var(--accent-cyan);
-    }
-
-    /* ============================================
-       LAYOUT
-       ============================================ */
-    .container {
-      max-width: var(--max-width);
-      margin: 0 auto;
-      padding: 0 24px;
-    }
-
-    section {
-      padding: 80px 0;
-    }
-
-    /* ============================================
-       NAV
-       ============================================ */
-    nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 100;
-      padding: 16px 0;
-      background: rgba(6, 8, 15, 0.85);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .nav-inner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .nav-logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      font-size: 1.2rem;
-      color: var(--text-primary);
-    }
-
-    .nav-logo svg {
-      width: 28px;
-      height: 28px;
-    }
-
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 28px;
-      list-style: none;
-    }
-
-    .nav-links a {
-      color: var(--text-secondary);
-      font-size: 0.875rem;
-      font-weight: 500;
-      transition: color 0.2s;
-    }
-    .nav-links a:hover {
-      color: var(--text-primary);
-    }
-
-    .nav-cta {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
-      background: var(--accent);
-      color: #fff !important;
-      border-radius: var(--radius-sm);
-      font-size: 0.875rem;
-      font-weight: 600;
-      transition: background 0.2s, transform 0.15s;
-    }
-    .nav-cta:hover {
-      background: #5a4bd6;
-      transform: translateY(-1px);
-      color: #fff !important;
-    }
-
-    .nav-mobile-btn {
-      display: none;
-      background: none;
-      border: none;
-      color: var(--text-primary);
-      cursor: pointer;
-      padding: 4px;
-    }
-
-    /* ============================================
-       HERO
-       ============================================ */
-    .hero {
-      padding-top: 160px;
-      padding-bottom: 100px;
-      text-align: center;
-      position: relative;
-    }
-
-    .hero::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 800px;
-      height: 600px;
-      background: radial-gradient(ellipse at center, var(--accent-glow) 0%, transparent 70%);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    .hero-content {
-      position: relative;
-      z-index: 1;
-    }
-
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 16px;
-      background: rgba(108, 92, 231, 0.12);
-      border: 1px solid rgba(108, 92, 231, 0.25);
-      border-radius: 100px;
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: var(--accent-light);
-      margin-bottom: 28px;
-    }
-
-    .hero-badge-dot {
-      width: 6px;
-      height: 6px;
-      background: var(--accent-green);
-      border-radius: 50%;
-      animation: pulse-dot 2s ease-in-out infinite;
-    }
-
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    .hero h1 {
-      font-size: clamp(2.5rem, 6vw, 4.2rem);
-      font-weight: 800;
-      line-height: 1.1;
-      letter-spacing: -0.03em;
-      margin-bottom: 20px;
-    }
-
-    .hero h1 .gradient-text {
-      background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent-cyan) 50%, var(--accent-green) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .hero-sub {
-      font-size: clamp(1.05rem, 2vw, 1.25rem);
-      color: var(--text-secondary);
-      max-width: 600px;
-      margin: 0 auto 36px;
-      line-height: 1.7;
-    }
-
-    .hero-actions {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 14px;
-      flex-wrap: wrap;
-      margin-bottom: 40px;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 14px 28px;
-      border-radius: var(--radius);
-      font-size: 0.95rem;
-      font-weight: 600;
-      font-family: var(--font-sans);
-      cursor: pointer;
-      border: none;
-      transition: all 0.2s;
-    }
-
-    .btn-primary {
-      background: var(--accent);
-      color: #fff;
-      box-shadow: 0 4px 24px var(--accent-glow);
-    }
-    .btn-primary:hover {
-      background: #5a4bd6;
-      transform: translateY(-2px);
-      box-shadow: 0 8px 32px var(--accent-glow);
-      color: #fff;
-    }
-
-    .btn-secondary {
-      background: var(--bg-card);
-      color: var(--text-primary);
-      border: 1px solid var(--border-light);
-    }
-    .btn-secondary:hover {
-      background: var(--bg-card-hover);
-      border-color: var(--accent);
-      transform: translateY(-2px);
-    }
-
-    .btn svg {
-      width: 18px;
-      height: 18px;
-    }
-
-    .hero-install {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      background: var(--bg-code);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px 20px;
-      font-family: var(--font-mono);
-      font-size: 0.9rem;
-      color: var(--text-secondary);
-      cursor: pointer;
-      transition: border-color 0.2s;
-      position: relative;
-    }
-    .hero-install:hover {
-      border-color: var(--accent);
-    }
-
-    .hero-install code {
-      color: var(--accent-green);
-    }
-
-    .hero-install .copy-icon {
-      color: var(--text-muted);
-      transition: color 0.2s;
-      flex-shrink: 0;
-    }
-    .hero-install:hover .copy-icon {
-      color: var(--accent-light);
-    }
-
-    .copy-feedback {
-      position: absolute;
-      top: -32px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--accent);
-      color: #fff;
-      padding: 4px 12px;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      font-family: var(--font-sans);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s;
-    }
-    .copy-feedback.show {
-      opacity: 1;
-    }
-
-    .hero-stats {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 32px;
-      margin-top: 48px;
-      flex-wrap: wrap;
-    }
-
-    .hero-stat {
-      text-align: center;
-    }
-
-    .hero-stat-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--text-primary);
-    }
-
-    .hero-stat-label {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-
-    .hero-stat-divider {
-      width: 1px;
-      height: 36px;
-      background: var(--border);
-    }
-
-    /* ============================================
-       FEATURES
-       ============================================ */
-    .features {
-      padding: 80px 0;
-    }
-
-    .section-label {
-      font-size: 0.8rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--accent-light);
-      margin-bottom: 12px;
-    }
-
-    .section-title {
-      font-size: clamp(1.8rem, 4vw, 2.5rem);
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 16px;
-    }
-
-    .section-desc {
-      font-size: 1.05rem;
-      color: var(--text-secondary);
-      max-width: 560px;
-      line-height: 1.7;
-    }
-
-    .section-header {
-      text-align: center;
-      margin-bottom: 56px;
-    }
-
-    .section-header .section-desc {
-      margin: 0 auto;
-    }
-
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-    }
-
-    .feature-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 32px 28px;
-      transition: all 0.25s;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .feature-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--accent), transparent);
-      opacity: 0;
-      transition: opacity 0.25s;
-    }
-
-    .feature-card:hover {
-      border-color: var(--border-light);
-      transform: translateY(-4px);
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
-    }
-    .feature-card:hover::before {
-      opacity: 1;
-    }
-
-    .feature-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 18px;
-      font-size: 1.2rem;
-    }
-
-    .feature-icon-purple { background: rgba(108, 92, 231, 0.15); color: var(--accent-light); }
-    .feature-icon-blue { background: rgba(79, 195, 247, 0.15); color: var(--accent-blue); }
-    .feature-icon-green { background: rgba(105, 240, 174, 0.15); color: var(--accent-green); }
-    .feature-icon-cyan { background: rgba(0, 229, 255, 0.15); color: var(--accent-cyan); }
-
-    .feature-card h3 {
-      font-size: 1.05rem;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-
-    .feature-card p {
-      font-size: 0.875rem;
-      color: var(--text-secondary);
-      line-height: 1.6;
-    }
-
-    /* ============================================
-       HOW IT WORKS
-       ============================================ */
-    .how-it-works {
-      padding: 80px 0;
-      background: var(--bg-secondary);
-    }
-
-    .steps {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-      margin-top: 56px;
-      position: relative;
-    }
-
-    .steps::before {
-      content: '';
-      position: absolute;
-      top: 38px;
-      left: calc(33.33% - 12px);
-      right: calc(33.33% - 12px);
-      height: 2px;
-      background: linear-gradient(90deg, var(--accent), var(--accent-cyan));
-      opacity: 0.3;
-    }
-
-    .step {
-      text-align: center;
-      position: relative;
-    }
-
-    .step-number {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: var(--bg-card);
-      border: 2px solid var(--accent);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 1.1rem;
-      color: var(--accent-light);
-      margin-bottom: 20px;
-      position: relative;
-      z-index: 1;
-    }
-
-    .step h3 {
-      font-size: 1.1rem;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-
-    .step p {
-      font-size: 0.875rem;
-      color: var(--text-secondary);
-      line-height: 1.6;
-      max-width: 280px;
-      margin: 0 auto;
-    }
-
-    .step-code {
-      display: inline-block;
-      background: var(--bg-code);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 8px 14px;
-      font-family: var(--font-mono);
-      font-size: 0.8rem;
-      color: var(--accent-green);
-      margin-top: 12px;
-    }
-
-    /* ============================================
-       ARCHITECTURE
-       ============================================ */
-    .architecture {
-      padding: 80px 0;
-    }
-
-    .arch-container {
-      background: var(--bg-code);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 32px;
-      overflow-x: auto;
-    }
-
-    .arch-diagram {
-      font-family: var(--font-mono);
-      font-size: 0.78rem;
-      line-height: 1.55;
-      color: var(--text-secondary);
-      white-space: pre;
-      min-width: 600px;
-    }
-
-    .arch-diagram .hl-purple { color: var(--accent-light); }
-    .arch-diagram .hl-blue { color: var(--accent-blue); }
-    .arch-diagram .hl-green { color: var(--accent-green); }
-    .arch-diagram .hl-cyan { color: var(--accent-cyan); }
-    .arch-diagram .hl-dim { color: var(--text-muted); }
-
-    /* ============================================
-       QUICK START
-       ============================================ */
-    .quickstart {
-      padding: 80px 0;
-      background: var(--bg-secondary);
-    }
-
-    .qs-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-    }
-
-    .code-block {
-      background: var(--bg-code);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-    }
-
-    .code-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 20px;
-      border-bottom: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.02);
-    }
-
-    .code-header-title {
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: var(--text-muted);
-    }
-
-    .code-dots {
-      display: flex;
-      gap: 6px;
-    }
-
-    .code-dots span {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--border-light);
-    }
-    .code-dots span:first-child { background: #ff5f56; }
-    .code-dots span:nth-child(2) { background: #ffbd2e; }
-    .code-dots span:last-child { background: #27ca40; }
-
-    .code-body {
-      padding: 20px;
-      font-family: var(--font-mono);
-      font-size: 0.82rem;
-      line-height: 1.7;
-      overflow-x: auto;
-    }
-
-    .code-body .comment { color: var(--text-muted); }
-    .code-body .keyword { color: var(--accent-light); }
-    .code-body .string { color: var(--accent-green); }
-    .code-body .func { color: var(--accent-blue); }
-    .code-body .flag { color: var(--accent-cyan); }
-    .code-body .plain { color: var(--text-secondary); }
-
-    /* ============================================
-       INTEGRATIONS
-       ============================================ */
-    .integrations {
-      padding: 80px 0;
-    }
-
-    .int-grid {
-      display: flex;
-      justify-content: center;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-top: 40px;
-    }
-
-    .int-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 20px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 100px;
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: var(--text-secondary);
-      transition: all 0.2s;
-    }
-    .int-badge:hover {
-      border-color: var(--accent);
-      color: var(--text-primary);
-      transform: translateY(-2px);
-    }
-
-    .int-badge svg {
-      width: 18px;
-      height: 18px;
-    }
-
-    /* ============================================
-       CTA SECTION
-       ============================================ */
-    .cta-section {
-      padding: 100px 0;
-      text-align: center;
-      position: relative;
-    }
-
-    .cta-section::before {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 600px;
-      height: 400px;
-      background: radial-gradient(ellipse at center, rgba(108, 92, 231, 0.1) 0%, transparent 70%);
-      pointer-events: none;
-    }
-
-    .cta-section h2 {
-      font-size: clamp(2rem, 4vw, 2.8rem);
-      font-weight: 700;
-      margin-bottom: 16px;
-      letter-spacing: -0.02em;
-    }
-
-    .cta-section p {
-      color: var(--text-secondary);
-      font-size: 1.1rem;
-      margin-bottom: 32px;
-    }
-
-    /* ============================================
-       FOOTER
-       ============================================ */
-    footer {
-      padding: 40px 0;
-      border-top: 1px solid var(--border);
-    }
-
-    .footer-inner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-
-    .footer-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--text-muted);
-      font-size: 0.85rem;
-    }
-
-    .footer-left svg {
-      width: 20px;
-      height: 20px;
-      color: var(--accent-light);
-    }
-
-    .footer-links {
-      display: flex;
-      gap: 24px;
-      list-style: none;
-    }
-
-    .footer-links a {
-      color: var(--text-muted);
-      font-size: 0.85rem;
-      transition: color 0.2s;
-    }
-    .footer-links a:hover {
-      color: var(--text-primary);
-    }
-
-    /* ============================================
-       RESPONSIVE
-       ============================================ */
-    @media (max-width: 768px) {
-      :root {
-        --section-gap: 80px;
-      }
-
-      .nav-links {
-        display: none;
-      }
-
-      .nav-mobile-btn {
-        display: block;
-      }
-
-      .nav-links.open {
-        display: flex;
-        flex-direction: column;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background: var(--bg-primary);
-        border-bottom: 1px solid var(--border);
-        padding: 20px 24px;
-        gap: 16px;
-      }
-
-      .hero {
-        padding-top: 120px;
-        padding-bottom: 60px;
-      }
-
-      .hero-stats {
-        gap: 20px;
-      }
-
-      .hero-stat-divider {
-        display: none;
-      }
-
-      .features-grid {
-        grid-template-columns: 1fr;
-        gap: 16px;
-      }
-
-      .steps {
-        grid-template-columns: 1fr;
-        gap: 40px;
-      }
-
-      .steps::before {
-        display: none;
-      }
-
-      .qs-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .arch-container {
-        padding: 20px 16px;
-      }
-
-      .arch-diagram {
-        font-size: 0.65rem;
-      }
-
-      .footer-inner {
-        flex-direction: column;
-        text-align: center;
-      }
-    }
-
-    @media (min-width: 769px) and (max-width: 1024px) {
-      .features-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    /* ============================================
-       SELECTION & SCROLLBAR
-       ============================================ */
-    ::selection {
-      background: rgba(108, 92, 231, 0.3);
-      color: #fff;
-    }
-
-    ::-webkit-scrollbar {
-      width: 8px;
-    }
-    ::-webkit-scrollbar-track {
-      background: var(--bg-primary);
-    }
-    ::-webkit-scrollbar-thumb {
-      background: var(--border-light);
-      border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--text-muted);
-    }
-
-    /* ============================================
-       REDUCED MOTION
-       ============================================ */
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        transition-duration: 0.01ms !important;
-      }
-      html {
-        scroll-behavior: auto;
-      }
+      --bg: #06080f; --bg-code: #0a0d14; --border: #1e2433;
+      --text: #c9d1d9; --dim: #6e7681; --bright: #e6edf3;
+      --violet: #6c5ce7; --green: #3fb950;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; font-size: 16px; line-height: 1.6; }
+    a { color: var(--violet); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, pre, .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; }
+    .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+    nav { border-bottom: 1px solid var(--border); padding: 16px 0; }
+    nav .container { display: flex; align-items: center; justify-content: space-between; }
+    .nav-brand { display: flex; align-items: center; gap: 10px; color: var(--bright); font-weight: 600; }
+    .nav-brand img { width: 28px; height: 28px; }
+    .nav-links { display: flex; gap: 24px; font-size: 0.875rem; }
+    .nav-links a { color: var(--dim); }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    .hero { padding: 72px 0 56px; border-bottom: 1px solid var(--border); }
+    .hero h1 { font-size: 2.25rem; font-weight: 600; color: var(--bright); letter-spacing: -0.02em; margin-bottom: 12px; }
+    .hero > .container > p { font-size: 1.05rem; color: var(--dim); max-width: 480px; margin-bottom: 32px; }
+
+    .install-bar { display: inline-flex; align-items: center; gap: 12px; background: var(--bg-code); border: 1px solid var(--border); border-radius: 6px; padding: 10px 16px; margin-bottom: 36px; }
+    .install-bar code { color: var(--bright); font-size: 0.9rem; }
+    .install-bar .prompt { color: var(--dim); }
+    .copy-btn { background: none; border: none; color: var(--dim); cursor: pointer; padding: 2px 4px; font-size: 0.75rem; font-family: inherit; }
+    .copy-btn:hover { color: var(--text); }
+
+    .terminal { background: #010409; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; max-width: 620px; }
+    .terminal-bar { background: #161b22; padding: 10px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+    .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-red { background: #ff5f57; } .dot-yellow { background: #febc2e; } .dot-green { background: #28c840; }
+    .terminal-title { margin-left: 4px; font-size: 0.75rem; color: var(--dim); }
+    .terminal-body { padding: 16px 18px; font-size: 0.82rem; line-height: 1.7; }
+    .t-prompt { color: var(--green); } .t-cmd { color: var(--bright); }
+    .t-success { color: var(--green); } .t-info { color: var(--dim); }
+    .t-arrow { color: var(--violet); } .t-result { color: var(--text); }
+    .t-meta { color: var(--dim); font-size: 0.78rem; }
+    .t-blank { display: block; height: 6px; }
+
+    .why { padding: 64px 0; border-bottom: 1px solid var(--border); }
+    .section-label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--violet); margin-bottom: 28px; }
+    .why p { font-size: 1rem; color: var(--text); max-width: 640px; margin-bottom: 20px; line-height: 1.7; }
+    .why p:last-child { margin-bottom: 0; }
+    .why strong { color: var(--bright); font-weight: 600; }
+
+    .examples { padding: 64px 0; border-bottom: 1px solid var(--border); }
+    .examples-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 32px; }
+    .examples-grid .example-wide { grid-column: 1 / -1; }
+    .example { background: var(--bg-code); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .example-header { padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 0.78rem; color: var(--dim); display: flex; align-items: center; gap: 8px; }
+    .lang-badge { background: var(--border); color: var(--dim); padding: 1px 6px; border-radius: 3px; font-size: 0.7rem; font-family: 'JetBrains Mono', monospace; }
+    .example pre { padding: 16px; overflow-x: auto; font-size: 0.82rem; line-height: 1.65; }
+
+    .kw { color: #ff7b72; } .fn { color: #d2a8ff; } .str { color: #a5d6ff; }
+    .str-g { color: var(--green); } .cm { color: var(--dim); font-style: italic; }
+    .pn { color: var(--text); } .nb { color: #ffa657; }
+    .ky { color: #79c0ff; } .jv { color: var(--green); }
+
+    .stats { padding: 40px 0; border-bottom: 1px solid var(--border); }
+    .stats-row { display: flex; gap: 48px; flex-wrap: wrap; }
+    .stat { display: flex; flex-direction: column; gap: 2px; }
+    .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; color: var(--bright); font-weight: 500; }
+    .stat-label { font-size: 0.8rem; color: var(--dim); }
+
+    footer { padding: 28px 0; }
+    footer .container { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .footer-links { display: flex; gap: 20px; font-size: 0.875rem; }
+    .footer-links a { color: var(--dim); }
+    .footer-links a:hover { color: var(--text); text-decoration: none; }
+    .footer-copy { font-size: 0.8rem; color: var(--dim); }
+
+    @media (max-width: 640px) {
+      .hero { padding: 48px 0 40px; }
+      .hero h1 { font-size: 1.75rem; }
+      .nav-links { gap: 16px; }
+      .examples-grid { grid-template-columns: 1fr; }
+      .examples-grid .example-wide { grid-column: 1; }
+      .stats-row { gap: 28px; }
+      footer .container { flex-direction: column; align-items: flex-start; }
     }
   </style>
 </head>
 <body>
 
-  <!-- ========== NAV ========== -->
-  <nav>
-    <div class="container nav-inner">
-      <a href="#" class="nav-logo">
-        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="14" cy="14" r="12" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
-          <circle cx="14" cy="14" r="5" fill="url(#navGrad)"/>
-          <path d="M14 2 C14 14 14 14 26 14" stroke="url(#navGrad)" stroke-width="1.5" fill="none" opacity="0.5"/>
-          <path d="M14 26 C14 14 14 14 2 14" stroke="url(#navGrad)" stroke-width="1.5" fill="none" opacity="0.5"/>
-          <path d="M5 5 C14 14 14 14 23 5" stroke="url(#navGrad)" stroke-width="1" fill="none" opacity="0.3"/>
-          <path d="M5 23 C14 14 14 14 23 23" stroke="url(#navGrad)" stroke-width="1" fill="none" opacity="0.3"/>
-          <defs>
-            <linearGradient id="navGrad" x1="0" y1="0" x2="28" y2="28">
-              <stop offset="0%" stop-color="#a388ee"/>
-              <stop offset="100%" stop-color="#4fc3f7"/>
-            </linearGradient>
-          </defs>
-        </svg>
-        engram
-      </a>
-      <ul class="nav-links" id="navLinks">
-        <li><a href="#features">Features</a></li>
-        <li><a href="#how-it-works">How It Works</a></li>
-        <li><a href="#architecture">Architecture</a></li>
-        <li><a href="#quickstart">Quick Start</a></li>
-        <li><a href="https://github.com/docaohieu2808/Engram-Mem" class="nav-cta" target="_blank" rel="noopener">
-          <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-          GitHub
-        </a></li>
-      </ul>
-      <button class="nav-mobile-btn" onclick="document.getElementById('navLinks').classList.toggle('open')" aria-label="Toggle menu">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
-      </button>
+<nav>
+  <div class="container">
+    <a href="/" class="nav-brand">
+      <img src="assets/logo.png" alt="Engram">
+      engram
+    </a>
+    <div class="nav-links">
+      <a href="https://github.com/docaohieu2808/Engram-Mem">GitHub</a>
+      <a href="https://pypi.org/project/engram-mem/">PyPI</a>
+      <a href="https://github.com/docaohieu2808/Engram-Mem/blob/main/README.md">Docs</a>
     </div>
-  </nav>
+  </div>
+</nav>
 
-  <!-- ========== HERO ========== -->
-  <section class="hero">
-    <div class="container hero-content">
-      <div class="hero-badge">
-        <span class="hero-badge-dot"></span>
-        Open Source &middot; MIT License
+<section class="hero">
+  <div class="container">
+    <h1>Persistent memory for AI agents</h1>
+    <p>Vector search for conversations. Knowledge graph for entities and relationships. One install.</p>
+    <div class="install-bar">
+      <span class="prompt mono">$</span>
+      <code>pip install engram-mem</code>
+      <button class="copy-btn mono" onclick="navigator.clipboard.writeText('pip install engram-mem').then(()=>{this.textContent='copied';setTimeout(()=>this.textContent='copy',1500)})">copy</button>
+    </div>
+    <div class="terminal">
+      <div class="terminal-bar">
+        <span class="terminal-dot dot-red"></span>
+        <span class="terminal-dot dot-yellow"></span>
+        <span class="terminal-dot dot-green"></span>
+        <span class="terminal-title">terminal</span>
       </div>
-
-      <h1>
-        Memory traces for<br>
-        <span class="gradient-text">AI agents</span>
-      </h1>
-
-      <p class="hero-sub">
-        Dual-memory system combining episodic (vector) + semantic (graph) storage.
-        Entity-gated ingestion ensures only meaningful data persists.
-        Think like humans remember.
-      </p>
-
-      <div class="hero-actions">
-        <a href="https://github.com/docaohieu2808/Engram-Mem" target="_blank" rel="noopener" class="btn btn-primary">
-          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-          Get Started
-        </a>
-        <a href="https://pypi.org/project/engram-mem/" target="_blank" rel="noopener" class="btn btn-secondary">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          View on PyPI
-        </a>
-      </div>
-
-      <div class="hero-install" onclick="copyInstall(this)" role="button" tabindex="0" aria-label="Copy install command">
-        <span>$</span>
-        <code>pip install engram-mem</code>
-        <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-        <span class="copy-feedback" id="copyFeedback">Copied!</span>
-      </div>
-
-      <div class="hero-stats">
-        <div class="hero-stat">
-          <div class="hero-stat-value">996+</div>
-          <div class="hero-stat-label">Tests</div>
-        </div>
-        <div class="hero-stat-divider"></div>
-        <div class="hero-stat">
-          <div class="hero-stat-value">4</div>
-          <div class="hero-stat-label">Interfaces</div>
-        </div>
-        <div class="hero-stat-divider"></div>
-        <div class="hero-stat">
-          <div class="hero-stat-value">MIT</div>
-          <div class="hero-stat-label">License</div>
-        </div>
-        <div class="hero-stat-divider"></div>
-        <div class="hero-stat">
-          <div class="hero-stat-value">Dual</div>
-          <div class="hero-stat-label">Memory</div>
-        </div>
+      <div class="terminal-body mono">
+        <div><span class="t-prompt">$</span> <span class="t-cmd">engram remember "Use PostgreSQL for the auth service, Redis for sessions"</span></div>
+        <div><span class="t-success">&#x2713; Stored</span> <span class="t-info">(entities: PostgreSQL, Redis, auth service)</span></div>
+        <span class="t-blank"></span>
+        <div><span class="t-prompt">$</span> <span class="t-cmd">engram recall "what database should I use for auth?"</span></div>
+        <div><span class="t-arrow">&#x2192;</span> <span class="t-result">Use PostgreSQL for the auth service, Redis for sessions</span></div>
+        <div><span class="t-meta">&nbsp;&nbsp;[preference] confidence: 0.92 | 2 hours ago</span></div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- ========== FEATURES ========== -->
-  <section class="features" id="features">
-    <div class="container">
-      <div class="section-header">
-        <div class="section-label">Features</div>
-        <h2 class="section-title">Everything your AI agent needs to remember</h2>
-        <p class="section-desc">
-          Production-grade memory infrastructure with enterprise features,
-          built for the MCP ecosystem.
-        </p>
+<section class="why">
+  <div class="container">
+    <div class="section-label">Why</div>
+    <p><strong>Your AI forgets everything.</strong> Claude Code, Cursor, Copilot — all of them start each session from zero. Useful for isolated tasks. Frustrating for ongoing projects where context matters.</p>
+    <p><strong>Engram fixes that.</strong> Dual memory store: vector search for conversations and decisions, knowledge graph for entities and their relationships. Your agent remembers what you said, who you mentioned, and what you decided — across sessions.</p>
+    <p><strong>Works with what you use.</strong> MCP server for Claude Code and Cursor. HTTP API for custom agents. CLI for scripts. One <code>pip install</code>, working in 5 minutes.</p>
+  </div>
+</section>
+
+<section class="examples">
+  <div class="container">
+    <div class="section-label">Code</div>
+    <div class="examples-grid">
+
+      <div class="example">
+        <div class="example-header">Add to Claude Code <span class="lang-badge">json</span></div>
+        <pre><span class="pn">{</span>
+  <span class="ky">"mcpServers"</span><span class="pn">:</span> <span class="pn">{</span>
+    <span class="ky">"engram"</span><span class="pn">:</span> <span class="pn">{</span>
+      <span class="ky">"command"</span><span class="pn">:</span> <span class="jv">"engram-mcp"</span>
+    <span class="pn">}</span>
+  <span class="pn">}</span>
+<span class="pn">}</span></pre>
       </div>
 
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon feature-icon-purple">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-          </div>
-          <h3>Dual Memory</h3>
-          <p>Episodic (Qdrant vector) + semantic (NetworkX graph). Two complementary systems fused by LLM reasoning, just like human memory.</p>
-        </div>
+      <div class="example">
+        <div class="example-header">Use in your agent <span class="lang-badge">python</span></div>
+        <pre><span class="kw">import</span> <span class="pn">httpx</span>
 
-        <div class="feature-card">
-          <div class="feature-icon feature-icon-blue">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          </div>
-          <h3>Entity-Gated Ingestion</h3>
-          <p>Only stores messages containing real entities. System prompts, trivial chat, and noise are filtered out automatically.</p>
-        </div>
+<span class="pn">api</span> <span class="pn">=</span> <span class="str">"http://localhost:8757"</span>
 
-        <div class="feature-card">
-          <div class="feature-icon feature-icon-green">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          </div>
-          <h3>Real-Time Capture</h3>
-          <p>Session watchers monitor IDE conversations live. Works with Claude Code, OpenClaw, Cursor via inotify/watchdog.</p>
-        </div>
+<span class="cm"># store a decision</span>
+<span class="pn">httpx.post(</span><span class="str">f"{api}/api/v1/remember"</span><span class="pn">,</span>
+  <span class="pn">json={</span><span class="str">"text"</span><span class="pn">:</span> <span class="str-g">"use postgres for auth"</span><span class="pn">})</span>
 
-        <div class="feature-card">
-          <div class="feature-icon feature-icon-cyan">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
-          </div>
-          <h3>Federated Search</h3>
-          <p>Query mem0, LightRAG, Graphiti, and custom providers in parallel. Auto-discovers knowledge sources on your machine.</p>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon feature-icon-purple">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          </div>
-          <h3>Enterprise Ready</h3>
-          <p>Multi-tenancy, JWT + RBAC auth, Redis caching, rate limiting, audit trail, resource tiers, and OpenTelemetry observability.</p>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon feature-icon-blue">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-          </div>
-          <h3>Multi-Surface API</h3>
-          <p>CLI (Typer), MCP Server (stdio), HTTP API (FastAPI), and WebSocket. Pick the interface that fits your stack.</p>
-        </div>
+<span class="cm"># retrieve it later</span>
+<span class="pn">r</span> <span class="pn">=</span> <span class="pn">httpx.post(</span><span class="str">f"{api}/api/v1/recall"</span><span class="pn">,</span>
+  <span class="pn">json={</span><span class="str">"query"</span><span class="pn">:</span> <span class="str-g">"auth database"</span><span class="pn">})</span>
+<span class="pn">print(r.json()[</span><span class="str">"results"</span><span class="pn">])</span></pre>
       </div>
+
+      <div class="example example-wide">
+        <div class="example-header">What a recall result looks like <span class="lang-badge">json</span></div>
+        <pre><span class="pn">{</span>
+  <span class="ky">"results"</span><span class="pn">: [</span>
+    <span class="pn">{</span>
+      <span class="ky">"text"</span><span class="pn">:</span>       <span class="jv">"Use PostgreSQL for the auth service, Redis for sessions"</span><span class="pn">,</span>
+      <span class="ky">"type"</span><span class="pn">:</span>       <span class="jv">"preference"</span><span class="pn">,</span>
+      <span class="ky">"confidence"</span><span class="pn">:</span> <span class="nb">0.92</span><span class="pn">,</span>
+      <span class="ky">"entities"</span><span class="pn">:</span>   <span class="pn">[</span><span class="jv">"PostgreSQL"</span><span class="pn">,</span> <span class="jv">"Redis"</span><span class="pn">,</span> <span class="jv">"auth service"</span><span class="pn">],</span>
+      <span class="ky">"stored_at"</span><span class="pn">:</span>  <span class="jv">"2025-03-16T10:42:00Z"</span>
+    <span class="pn">}</span>
+  <span class="pn">]</span>
+<span class="pn">}</span></pre>
+      </div>
+
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- ========== HOW IT WORKS ========== -->
-  <section class="how-it-works" id="how-it-works">
-    <div class="container">
-      <div class="section-header">
-        <div class="section-label">How It Works</div>
-        <h2 class="section-title">Three steps to persistent memory</h2>
-        <p class="section-desc">
-          From installation to full AI memory in under five minutes.
-        </p>
-      </div>
-
-      <div class="steps">
-        <div class="step">
-          <div class="step-number">1</div>
-          <h3>Install</h3>
-          <p>One pip command. Embedded Qdrant and SQLite included — no external services required to start.</p>
-          <div class="step-code">pip install engram-mem</div>
-        </div>
-
-        <div class="step">
-          <div class="step-number">2</div>
-          <h3>Connect</h3>
-          <p>Add engram as an MCP server in your AI tool's config. Claude Code, Cursor, or any MCP-compatible client.</p>
-          <div class="step-code">engram serve --mcp</div>
-        </div>
-
-        <div class="step">
-          <div class="step-number">3</div>
-          <h3>Remember</h3>
-          <p>Your AI agent now has persistent memory. It remembers context, preferences, and knowledge across sessions.</p>
-          <div class="step-code">engram recall "project setup"</div>
-        </div>
-      </div>
+<section class="stats">
+  <div class="container">
+    <div class="stats-row">
+      <div class="stat"><span class="stat-value mono">996</span><span class="stat-label">tests</span></div>
+      <div class="stat"><span class="stat-value mono">4</span><span class="stat-label">interfaces</span></div>
+      <div class="stat"><span class="stat-value mono">30+</span><span class="stat-label">MCP tools</span></div>
+      <div class="stat"><span class="stat-value mono">MIT</span><span class="stat-label">license</span></div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- ========== ARCHITECTURE ========== -->
-  <section class="architecture" id="architecture">
-    <div class="container">
-      <div class="section-header">
-        <div class="section-label">Architecture</div>
-        <h2 class="section-title">Built for scale and extensibility</h2>
-        <p class="section-desc">
-          A layered architecture with clear separation of concerns.
-        </p>
-      </div>
-
-      <div class="arch-container">
-        <div class="arch-diagram"><span class="hl-purple">  Agents & IDEs                        Interfaces                        Core</span>
-  <span class="hl-dim">+-----------------+</span>          <span class="hl-dim">+---------------------+</span>      <span class="hl-dim">+---------------------------+</span>
-  <span class="hl-dim">|</span> <span class="hl-blue">Claude Code</span>     <span class="hl-dim">|</span>    <span class="hl-dim">---></span>   <span class="hl-dim">|</span> <span class="hl-cyan">MCP Server (stdio)</span>  <span class="hl-dim">|</span>      <span class="hl-dim">|</span>                           <span class="hl-dim">|</span>
-  <span class="hl-dim">|</span> <span class="hl-blue">OpenClaw</span>        <span class="hl-dim">|</span>    <span class="hl-dim">---></span>   <span class="hl-dim">|</span> <span class="hl-cyan">HTTP API /api/v1/</span>   <span class="hl-dim">|</span> <span class="hl-dim">--></span>  <span class="hl-dim">|</span>  <span class="hl-green">Recall Pipeline</span>           <span class="hl-dim">|</span>
-  <span class="hl-dim">|</span> <span class="hl-blue">Cursor</span>          <span class="hl-dim">|</span>    <span class="hl-dim">---></span>   <span class="hl-dim">|</span> <span class="hl-cyan">CLI (Typer)</span>         <span class="hl-dim">|</span>      <span class="hl-dim">|</span>  <span class="hl-dim">|</span> decision <span class="hl-dim">></span> resolve      <span class="hl-dim">|</span>
-  <span class="hl-dim">|</span> <span class="hl-blue">Any MCP Client</span>  <span class="hl-dim">|</span>    <span class="hl-dim">---></span>   <span class="hl-dim">|</span> <span class="hl-cyan">WebSocket /ws</span>       <span class="hl-dim">|</span>      <span class="hl-dim">|</span>  <span class="hl-dim">|</span> search <span class="hl-dim">></span> score <span class="hl-dim">></span> fuse  <span class="hl-dim">|</span>
-  <span class="hl-dim">+-----------------+</span>          <span class="hl-dim">+---------------------+</span>      <span class="hl-dim">|</span>                           <span class="hl-dim">|</span>
-                                        <span class="hl-dim">|</span>                        <span class="hl-dim">+----------+--+-------------+</span>
-                                  <span class="hl-dim">Auth Middleware</span>                      <span class="hl-dim">|</span>             <span class="hl-dim">|</span>
-                                <span class="hl-dim">(JWT + RBAC, optional)</span>              <span class="hl-dim">  v</span>             <span class="hl-dim">v</span>
-                                                         <span class="hl-dim">+-------------+</span>  <span class="hl-dim">+-------------+</span>
-<span class="hl-purple">  Storage</span>                                               <span class="hl-dim">|</span> <span class="hl-green">Episodic</span>     <span class="hl-dim">|</span>  <span class="hl-dim">|</span> <span class="hl-green">Semantic</span>     <span class="hl-dim">|</span>
-  <span class="hl-dim">+-------------------+</span>                                <span class="hl-dim">|</span> <span class="hl-dim">(Qdrant)</span>     <span class="hl-dim">|</span>  <span class="hl-dim">|</span> <span class="hl-dim">(NetworkX)</span>   <span class="hl-dim">|</span>
-  <span class="hl-dim">|</span> <span class="hl-blue">Qdrant</span>  <span class="hl-dim">(vectors)</span> <span class="hl-dim">|</span>                                <span class="hl-dim">+------+------+</span>  <span class="hl-dim">+------+------+</span>
-  <span class="hl-dim">|</span> <span class="hl-blue">SQLite</span>  <span class="hl-dim">(graph)</span>   <span class="hl-dim">|</span>                                       <span class="hl-dim">|</span>             <span class="hl-dim">|</span>
-  <span class="hl-dim">|</span> <span class="hl-blue">Postgres</span> <span class="hl-dim">(opt.)</span>  <span class="hl-dim">|</span>                                       <span class="hl-dim">v</span>             <span class="hl-dim">v</span>
-  <span class="hl-dim">|</span> <span class="hl-blue">Redis</span>   <span class="hl-dim">(cache)</span>  <span class="hl-dim">|</span>                                <span class="hl-dim">+---------------------------+</span>
-  <span class="hl-dim">+-------------------+</span>                                <span class="hl-dim">|</span> <span class="hl-green">Reasoning Engine</span>          <span class="hl-dim">|</span>
-                                                         <span class="hl-dim">|</span> <span class="hl-dim">(Gemini via litellm)</span>       <span class="hl-dim">|</span>
-<span class="hl-purple">  Federated</span>                                              <span class="hl-dim">+---------------------------+</span>
-  <span class="hl-dim">+-------------------+</span>
-  <span class="hl-dim">|</span> <span class="hl-cyan">mem0</span>              <span class="hl-dim">|</span>
-  <span class="hl-dim">|</span> <span class="hl-cyan">LightRAG</span>          <span class="hl-dim">|</span>
-  <span class="hl-dim">|</span> <span class="hl-cyan">Graphiti</span>          <span class="hl-dim">|</span>
-  <span class="hl-dim">|</span> <span class="hl-cyan">Custom providers</span>  <span class="hl-dim">|</span>
-  <span class="hl-dim">+-------------------+</span></div>
-      </div>
+<footer>
+  <div class="container">
+    <div class="footer-links">
+      <a href="https://github.com/docaohieu2808/Engram-Mem">GitHub</a>
+      <a href="https://pypi.org/project/engram-mem/">PyPI</a>
+      <a href="https://github.com/docaohieu2808/Engram-Mem/blob/main/README.md">Docs</a>
+      <a href="https://github.com/docaohieu2808/Engram-Mem/blob/main/LICENSE">MIT License</a>
     </div>
-  </section>
+    <span class="footer-copy">engram-mem</span>
+  </div>
+</footer>
 
-  <!-- ========== QUICK START ========== -->
-  <section class="quickstart" id="quickstart">
-    <div class="container">
-      <div class="section-header">
-        <div class="section-label">Quick Start</div>
-        <h2 class="section-title">Up and running in minutes</h2>
-        <p class="section-desc">
-          Simple CLI commands or integrate via MCP, HTTP, or WebSocket.
-        </p>
-      </div>
-
-      <div class="qs-grid">
-        <div class="code-block">
-          <div class="code-header">
-            <div class="code-dots"><span></span><span></span><span></span></div>
-            <div class="code-header-title">CLI Usage</div>
-          </div>
-          <div class="code-body">
-<span class="comment"># Install</span>
-<span class="plain">$ </span><span class="func">pip install</span> <span class="string">engram-mem</span>
-
-<span class="comment"># Store a memory</span>
-<span class="plain">$ </span><span class="func">engram remember</span> <span class="string">"User prefers dark theme"</span>
-
-<span class="comment"># Recall relevant memories</span>
-<span class="plain">$ </span><span class="func">engram recall</span> <span class="string">"UI preferences"</span>
-
-<span class="comment"># Start MCP server for AI agents</span>
-<span class="plain">$ </span><span class="func">engram serve</span> <span class="flag">--mcp</span>
-
-<span class="comment"># Start HTTP API server</span>
-<span class="plain">$ </span><span class="func">engram serve</span> <span class="flag">--http --port 8100</span>
-
-<span class="comment"># Ingest a session file</span>
-<span class="plain">$ </span><span class="func">engram ingest</span> <span class="string">session.jsonl</span>
-          </div>
-        </div>
-
-        <div class="code-block">
-          <div class="code-header">
-            <div class="code-dots"><span></span><span></span><span></span></div>
-            <div class="code-header-title">MCP Config (Claude Code)</div>
-          </div>
-          <div class="code-body">
-<span class="comment">// ~/.claude/settings.json</span>
-<span class="plain">{</span>
-  <span class="func">"mcpServers"</span><span class="plain">: {</span>
-    <span class="func">"engram"</span><span class="plain">: {</span>
-      <span class="func">"command"</span><span class="plain">: </span><span class="string">"engram"</span><span class="plain">,</span>
-      <span class="func">"args"</span><span class="plain">: [</span><span class="string">"serve"</span><span class="plain">, </span><span class="string">"--mcp"</span><span class="plain">]</span>
-    <span class="plain">}</span>
-  <span class="plain">}</span>
-<span class="plain">}</span>
-
-<span class="comment">// Your AI agent now has access to:</span>
-<span class="comment">// - engram_remember</span>
-<span class="comment">// - engram_recall</span>
-<span class="comment">// - engram_ask</span>
-<span class="comment">// - engram_add_entity</span>
-<span class="comment">// - engram_add_relation</span>
-<span class="comment">// - engram_feedback</span>
-<span class="comment">// - engram_session_start/end</span>
-<span class="comment">// - ... and 15+ more tools</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ========== INTEGRATIONS ========== -->
-  <section class="integrations">
-    <div class="container">
-      <div class="section-header">
-        <div class="section-label">Integrations</div>
-        <h2 class="section-title">Works with your stack</h2>
-        <p class="section-desc">
-          Native MCP support means any compatible AI tool can use engram as its memory layer.
-        </p>
-      </div>
-
-      <div class="int-grid">
-        <div class="int-badge">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-          Claude Code
-        </div>
-        <div class="int-badge">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          Cursor
-        </div>
-        <div class="int-badge">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/></svg>
-          Any MCP Client
-        </div>
-        <div class="int-badge">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/></svg>
-          OpenClaw
-        </div>
-        <div class="int-badge">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
-          mem0
-        </div>
-        <div class="int-badge">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          LightRAG
-        </div>
-        <div class="int-badge">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-          Graphiti
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ========== CTA ========== -->
-  <section class="cta-section">
-    <div class="container" style="position: relative; z-index: 1;">
-      <h2>Give your AI agents <span class="gradient-text">persistent memory</span></h2>
-      <p>Open source, MIT licensed, production-ready. Start in under 5 minutes.</p>
-      <div class="hero-actions">
-        <a href="https://github.com/docaohieu2808/Engram-Mem" target="_blank" rel="noopener" class="btn btn-primary">
-          <svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-          Star on GitHub
-        </a>
-        <a href="https://pypi.org/project/engram-mem/" target="_blank" rel="noopener" class="btn btn-secondary">
-          View Documentation
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!-- ========== FOOTER ========== -->
-  <footer>
-    <div class="container footer-inner">
-      <div class="footer-left">
-        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
-          <circle cx="14" cy="14" r="5" fill="currentColor"/>
-          <circle cx="14" cy="14" r="12" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
-        </svg>
-        engram &middot; MIT License
-      </div>
-      <ul class="footer-links">
-        <li><a href="https://github.com/docaohieu2808/Engram-Mem" target="_blank" rel="noopener">GitHub</a></li>
-        <li><a href="https://pypi.org/project/engram-mem/" target="_blank" rel="noopener">PyPI</a></li>
-        <li><a href="https://github.com/docaohieu2808/Engram-Mem/issues" target="_blank" rel="noopener">Issues</a></li>
-        <li><a href="https://github.com/docaohieu2808/Engram-Mem/blob/main/LICENSE" target="_blank" rel="noopener">License</a></li>
-      </ul>
-    </div>
-  </footer>
-
-  <!-- ========== MINIMAL JS ========== -->
-  <script>
-    function copyInstall(el) {
-      navigator.clipboard.writeText('pip install engram-mem').then(function() {
-        var fb = document.getElementById('copyFeedback');
-        fb.classList.add('show');
-        setTimeout(function() { fb.classList.remove('show'); }, 1500);
-      });
-    }
-
-    // Allow Enter/Space on install box
-    document.querySelector('.hero-install').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        copyInstall(this);
-      }
-    });
-
-    // Close mobile menu on link click
-    document.querySelectorAll('.nav-links a').forEach(function(link) {
-      link.addEventListener('click', function() {
-        document.getElementById('navLinks').classList.remove('open');
-      });
-    });
-  </script>
 </body>
 </html>
