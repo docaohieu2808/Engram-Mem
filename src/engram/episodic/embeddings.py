@@ -100,7 +100,16 @@ def _get_embeddings(model: str, texts: list[str], expected_dim: int | None = Non
 
 
 def _detect_embedding_dim_from_model(embed_model: str) -> int | None:
-    """Return known dimension for recognized embedding models."""
+    """Return known dimension for recognized embedding models.
+
+    When use_local_for_episodic is enabled, episodic operations use bge-m3
+    (1024-dim) regardless of the configured model name.
+    """
+    from engram.config import load_config
+    cfg = load_config().embedding
+    if cfg.use_local_for_episodic:
+        return 1024
+
     model_name = embed_model.split("/")[-1] if "/" in embed_model else embed_model
     if model_name == "gemini-embedding-001":
         return EMBEDDING_DIM
