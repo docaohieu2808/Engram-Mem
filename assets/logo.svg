@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="grad2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow-strong">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Connections (edges) between nodes -->
+  <g stroke="url(#grad)" stroke-width="1.5" opacity="0.5" filter="url(#glow)">
+    <!-- Central hub connections -->
+    <line x1="256" y1="256" x2="196" y2="180"/>
+    <line x1="256" y1="256" x2="316" y2="180"/>
+    <line x1="256" y1="256" x2="340" y2="256"/>
+    <line x1="256" y1="256" x2="316" y2="332"/>
+    <line x1="256" y1="256" x2="196" y2="332"/>
+    <line x1="256" y1="256" x2="172" y2="256"/>
+
+    <!-- Outer ring connections -->
+    <line x1="196" y1="180" x2="316" y2="180"/>
+    <line x1="316" y1="180" x2="340" y2="256"/>
+    <line x1="340" y1="256" x2="316" y2="332"/>
+    <line x1="316" y1="332" x2="196" y2="332"/>
+    <line x1="196" y1="332" x2="172" y2="256"/>
+    <line x1="172" y1="256" x2="196" y2="180"/>
+
+    <!-- Extended connections to outer nodes -->
+    <line x1="196" y1="180" x2="156" y2="120"/>
+    <line x1="316" y1="180" x2="356" y2="120"/>
+    <line x1="340" y1="256" x2="400" y2="240"/>
+    <line x1="316" y1="332" x2="370" y2="380"/>
+    <line x1="196" y1="332" x2="142" y2="380"/>
+    <line x1="172" y1="256" x2="112" y2="240"/>
+
+    <!-- Cross connections for complexity -->
+    <line x1="156" y1="120" x2="356" y2="120"/>
+    <line x1="400" y1="240" x2="370" y2="380"/>
+    <line x1="142" y1="380" x2="112" y2="240"/>
+    <line x1="156" y1="120" x2="112" y2="240"/>
+    <line x1="356" y1="120" x2="400" y2="240"/>
+    <line x1="370" y1="380" x2="142" y2="380"/>
+  </g>
+
+  <!-- Secondary trace lines (memory paths) -->
+  <g stroke="url(#grad2)" stroke-width="1" opacity="0.3">
+    <line x1="156" y1="120" x2="256" y2="100"/>
+    <line x1="356" y1="120" x2="256" y2="100"/>
+    <line x1="256" y1="100" x2="256" y2="256"/>
+    <line x1="370" y1="380" x2="256" y2="410"/>
+    <line x1="142" y1="380" x2="256" y2="410"/>
+    <line x1="256" y1="410" x2="256" y2="256"/>
+  </g>
+
+  <!-- Outer nodes (small) -->
+  <g filter="url(#glow)">
+    <circle cx="156" cy="120" r="8" fill="url(#grad)" opacity="0.8"/>
+    <circle cx="356" cy="120" r="8" fill="url(#grad)" opacity="0.8"/>
+    <circle cx="400" cy="240" r="7" fill="url(#grad)" opacity="0.7"/>
+    <circle cx="370" cy="380" r="8" fill="url(#grad)" opacity="0.8"/>
+    <circle cx="142" cy="380" r="8" fill="url(#grad)" opacity="0.8"/>
+    <circle cx="112" cy="240" r="7" fill="url(#grad)" opacity="0.7"/>
+    <circle cx="256" cy="100" r="5" fill="#7C3AED" opacity="0.6"/>
+    <circle cx="256" cy="410" r="5" fill="#4F46E5" opacity="0.6"/>
+  </g>
+
+  <!-- Inner ring nodes (medium) -->
+  <g filter="url(#glow)">
+    <circle cx="196" cy="180" r="12" fill="url(#grad)" opacity="0.9"/>
+    <circle cx="316" cy="180" r="12" fill="url(#grad)" opacity="0.9"/>
+    <circle cx="340" cy="256" r="10" fill="url(#grad)" opacity="0.85"/>
+    <circle cx="316" cy="332" r="12" fill="url(#grad)" opacity="0.9"/>
+    <circle cx="196" cy="332" r="12" fill="url(#grad)" opacity="0.9"/>
+    <circle cx="172" cy="256" r="10" fill="url(#grad)" opacity="0.85"/>
+  </g>
+
+  <!-- Central hub node (large) -->
+  <circle cx="256" cy="256" r="20" fill="url(#grad)" filter="url(#glow-strong)"/>
+  <circle cx="256" cy="256" r="12" fill="#0F172A"/>
+  <circle cx="256" cy="256" r="8" fill="url(#grad)" opacity="0.9"/>
+</svg>
