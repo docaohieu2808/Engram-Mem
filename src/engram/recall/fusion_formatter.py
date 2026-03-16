@@ -72,10 +72,15 @@ def format_for_llm(results: list, max_chars: int = 2000) -> str:
         if meta.get("outdated") == "true":
             reason = meta.get("outdated_reason", "")
             content = f"[OUTDATED: {reason}] {content}" if reason else f"[OUTDATED] {content}"
+        # Prepend memory ID for citation tracking
+        mem_id_prefix = ""
+        if hasattr(r, "id") and r.id:
+            short_id = r.id[:8] if len(r.id) > 8 else r.id
+            mem_id_prefix = f"[mem-{short_id}] "
         # Truncate individual entries
         if len(content) > _MAX_ENTRY_CHARS:
             content = content[:_MAX_ENTRY_CHARS - 3] + "..."
-        groups.setdefault(mem_type, []).append(content)
+        groups.setdefault(mem_type, []).append(f"{mem_id_prefix}{content}")
 
     # Sort groups by TYPE_PRIORITY, unknown types ("memory") go last
     def _sort_key(t: str) -> int:

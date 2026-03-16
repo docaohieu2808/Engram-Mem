@@ -100,8 +100,30 @@ def _get_embeddings(model: str, texts: list[str], expected_dim: int | None = Non
 
 
 def _detect_embedding_dim_from_model(embed_model: str) -> int | None:
-    """Return 3072 for gemini-embedding-001, None otherwise."""
+    """Return known dimension for recognized embedding models."""
     model_name = embed_model.split("/")[-1] if "/" in embed_model else embed_model
     if model_name == "gemini-embedding-001":
         return EMBEDDING_DIM
+    if "bge-m3" in model_name.lower():
+        return 1024
     return None
+
+
+def get_embeddings_for_purpose(
+    texts: list[str],
+    purpose: str = "episodic",
+) -> list[list[float]]:
+    """Route embedding calls based on purpose and config.
+
+    - purpose="episodic" + use_local_for_episodic → local bge-m3
+    - purpose="semantic" or use_local_for_episodic=False → Gemini API
+    """
+    from engram.config import load_config
+    config = load_config().embedding
+
+    if purpose == "episodic" and config.use_local_for_episodic:
+        from engram.episodic.local_embeddings import embed
+        return embed(texts, model_name=config.local_model)
+
+    # Default: Gemini API (existing path)
+    return _get_embeddings(config.model, texts)

@@ -404,8 +404,10 @@ class TestFuse:
     """Direct unit tests for ParallelSearcher._fuse()."""
 
     def _fuse(self, results: list[SearchResult], limit: int) -> list[SearchResult]:
-        # _fuse uses no instance state — call via None self
-        return ParallelSearcher._fuse(None, results, limit)  # type: ignore[arg-type]
+        # Create a minimal ParallelSearcher with reranking disabled
+        from unittest.mock import MagicMock
+        searcher = ParallelSearcher(MagicMock(), MagicMock(), rerank=None)
+        return searcher._fuse(results, limit)
 
     def test_fuse_dedup_keeps_highest_score(self):
         """Two results with identical content → only one kept with higher score."""

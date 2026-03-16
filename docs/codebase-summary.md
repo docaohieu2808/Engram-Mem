@@ -13,10 +13,11 @@ Engram v0.4.1 is a production-ready dual-memory AI agent system featuring modula
 
 #### `config.py` (280 LOC)
 YAML-based configuration system with env var expansion and overlay.
-- **Config models:** EpisodicConfig, SemanticConfig, AuthConfig, TelemetryConfig, CacheConfig, RateLimitConfig, AuditConfig
+- **Config models:** EpisodicConfig, SemanticConfig, AuthConfig, TelemetryConfig, CacheConfig, RateLimitConfig, AuditConfig, **RerankConfig (v0.5.0)**
 - **Env var expansion:** `${VAR}` syntax in YAML, per-field type casting
 - **Env var overlay:** ENGRAM_* variables override YAML (e.g., ENGRAM_LLM_MODEL)
 - **Helpers:** load_config(), save_config(), get/set via dot notation (e.g., "llm.model")
+- **New (v0.5.0):** RerankConfig (enabled, threshold, top_k), extended EmbeddingConfig (use_local_for_episodic, local_dimensions)
 
 #### `auth.py` (200 LOC)
 JWT and API key authentication for HTTP API. **Disabled by default** for backward compat.
@@ -168,6 +169,14 @@ Multi-key rotation for Gemini API.
 - **Key sources:** `GEMINI_API_KEY` + `GEMINI_API_KEY_FALLBACK`
 - **Strategies:** failover (default) or round-robin
 
+**`local_embeddings.py`** (110 LOC) — **NEW (v0.5.0)**
+Local bge-m3 embedding model for episodic operations.
+- **Model:** `BAAI/bge-m3` (1024 dimensions, multilingual)
+- **Lazy loading:** Downloads (~2.3GB) on first use
+- **Dual routing:** Local for episodic search/remember; Gemini for entity extraction
+- **Config:** `embedding.use_local_for_episodic` (default true), `embedding.local_dimensions` (1024)
+- **Fallback:** Gracefully falls back to Gemini if local model unavailable
+
 **`search.py`** (180 LOC)
 Embedding + similarity scoring + activation-based recall.
 - Composite scoring: similarity (0.5) + retention (0.2) + recency (0.15) + frequency (0.15)
@@ -230,7 +239,7 @@ Entity and temporal resolution for context extraction.
 Multi-source search with fusion and deduplication.
 - **Sources:** ChromaDB semantic, entity graph keyword, keyword fallback
 - **Fusion:** Parallel async, dedup by content hash, score ranking
-- **SearchResult:** content, score (0-1), source, metadata, resolved_entities
+- **SearchResult:** content, score (0-1), source, metadata, resolved_entities, **provenance (v0.5.0)**
 - Top-K selection after merging
 
 #### `temporal_resolver.py` (150 LOC) — **NEW (v0.4.0)**
@@ -257,6 +266,17 @@ Group recall results by memory type for structured LLM context.
 - Wired into engram_recall() after parallel_search + fusion
 - LLM reasoning uses formatted structure with type hints
 - Config: fusion.formatter_enabled (default true)
+- **Updated (v0.5.0):** Memory IDs now included in citation format [mem-XXXXXXXX]
+
+#### `reranker.py` (115 LOC) — **NEW (v0.5.0)**
+Cross-encoder reranking for recall quality improvement.
+- **Model:** `BAAI/bge-reranker-v2-m3` (278M params, CPU-compatible)
+- **Pattern:** Over-fetch 25 candidates → rerank → top-8 with threshold
+- **Threshold filtering:** Score ≥0.15 (NexusRAG pattern), fallback to top-3 if below threshold
+- **Skip logic:** Disabled for <5 candidates (cost not justified)
+- **Lazy loading:** Model downloads (~600MB) on first use
+- **Config:** `recall.reranker_enabled` (default true), `recall.rerank_threshold` (0.15), `recall.rerank_top_k` (8)
+- **Latency:** ~130ms per batch on CPU (acceptable for real-time agent memory)
 
 ---
 
@@ -385,7 +405,7 @@ Spawns an MCP server subprocess and calls a tool via stdio.
 
 ### `src/engram/reasoning/` — LLM synthesis
 
-#### `engine.py` (200 LOC — extended v0.3.2)
+#### `engine.py` (200 LOC — extended v0.3.2, updated v0.5.0)
 Combines episodic + semantic memory, feeds to LLM for synthesis.
 - **Providers:** Gemini (default) via litellm
 - **Operations:** think() (Q&A), summarize() (key insights), ingest() (extract entities + remember)
@@ -393,6 +413,7 @@ Combines episodic + semantic memory, feeds to LLM for synthesis.
 - **Caching:** Optional Redis caching for expensive LLM calls
 - **New (v0.3.2):** ResourceMonitor tier check before LLM calls; BASIC tier returns raw recall
 - **New (v0.3.2):** Constitution prefix injected into think() and summarize() prompts
+- **Updated (v0.5.0):** Citation instructions for LLM synthesis; memory IDs injected into prompt for [mem-XXXXXXXX] format
 
 ---
 
@@ -772,9 +793,9 @@ HTTP server latency benchmark measuring p50/p95/p99 per endpoint.
 | Metric | Value |
 |--------|-------|
 | Python version | 3.11+ |
-| Total LOC | ~6000+ (expanded with modularization) |
-| Test count | 894+ |
-| Modules | 50+ |
+| Total LOC | ~6200+ (reranker, local embeddings, citation logic) |
+| Test count | 967 |
+| Modules | 52+ |
 | Episodic backends | 3 (embedded, HTTP, legacy) |
 | Episodic store mixins | 6 (CRUD, search, maintenance, batch, FTS) |
 | Capture router modules | 4 (memory, CRUD, graph, admin) |
@@ -791,8 +812,9 @@ HTTP server latency benchmark measuring p50/p95/p99 per endpoint.
 | Plugin entry point groups | 5 (episodic_backends, semantic_backends, providers, cli_commands, mcp_tools) |
 | TUI screens | 4 (Dashboard, Search, Recent, Sessions) |
 | Session storage | JSON files (~/.engram/sessions) |
-| Recall pipeline components | 8 (decision, resolver, search, feedback, auto-memory, guard, auto-trigger, audit) |
-| Embedding model | gemini-embedding-001 (3072d) only |
+| Recall pipeline components | 9 (decision, resolver, search, reranker, feedback, auto-memory, guard, auto-trigger, audit) |
+| Embedding models | Dual: local bge-m3 (1024d episodic) + Gemini (3072d semantic) |
+| Reranker model | bge-reranker-v2-m3 (cross-encoder, ~130ms/batch CPU) |
 | Key rotation strategies | 2 (failover, round-robin) |
 | Semantic graph lazy loading | Indexed SQL queries skip full NetworkX load |
 | Benchmark operations | 4 (health, remember, recall, think) |
@@ -804,6 +826,7 @@ HTTP server latency benchmark measuring p50/p95/p99 per endpoint.
 
 | Version | Phase | Highlights | Tests |
 |---------|-------|-----------|-------|
+| v0.5.0 | NexusRAG | Cross-encoder reranking (25→8), dual embeddings (bge-m3 local + Gemini), provenance citations, citation instructions | 967 |
 | v0.4.1 | 7 Architecture | Backend protocols, modularized stores/servers, lazy graph loading, Redis event bus, HTTP client SDK, plugin entry points | 894+ |
 | v0.4.0 | 4 Intelligence | Temporal/pronoun resolution, result formatting, graph visualization, feedback integration | 615+ |
 | v0.3.2 | Brain | Audit trail, resource tiers, constitution, scheduler | 545+ |

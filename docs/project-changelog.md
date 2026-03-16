@@ -4,6 +4,53 @@ All notable changes to this project are documented here. Follows [Keep a Changel
 
 ---
 
+## [v0.5.0] — 2026-03-16
+### NexusRAG-Inspired Recall Improvements
+
+**Added**
+- **Cross-Encoder Reranking** (`src/engram/recall/reranker.py`)
+  - `BAAI/bge-reranker-v2-m3` model (278M params, CPU-compatible)
+  - Over-fetch pattern: 25 candidates → rerank → top-8 with threshold
+  - Score threshold filtering (≥0.15), fallback to top-3 if below threshold
+  - Skip logic for <5 candidates (cost not justified)
+  - Lazy model loading (~600MB downloads on first use)
+  - Config: `recall.reranker_enabled` (default true), `recall.rerank_threshold` (0.15), `recall.rerank_top_k` (8)
+  - Latency: ~130ms per batch on CPU
+
+- **Dual Embedding Strategy** (`src/engram/episodic/local_embeddings.py`)
+  - Local `BAAI/bge-m3` (1024d) for episodic operations (search/remember)
+  - Keeps Gemini (3072d) for semantic entity extraction
+  - Eliminates API dependency for high-frequency episodic operations
+  - Qdrant collection re-indexing: 5,997 memories migrated from 3072d→1024d via alias-based zero-downtime switchover
+  - Lazy model loading (~2.3GB on first use)
+  - Config: `embedding.use_local_for_episodic` (default true), `embedding.local_dimensions` (1024)
+  - Fallback to Gemini if local model unavailable
+
+- **Provenance & Citation Tracking**
+  - `ProvenanceInfo` model on `SearchResult`: source_agent, session_id, timestamp, context_snippet
+  - Memory ID citations in LLM synthesis: `[mem-XXXXXXXX]` format
+  - Session watcher auto-populates provenance on ingest
+  - Synthesizer injects citation instructions into LLM prompts
+  - Best-effort citations (LLM-instructed, no hard enforcement)
+  - Backward compatible: existing memories without provenance work fine
+
+- **Configuration Extensions**
+  - `RerankConfig`: enabled, threshold, top_k parameters
+  - `EmbeddingConfig` extended: use_local_for_episodic, local_dimensions
+  - All new features config-driven with sensible defaults
+
+**New Dependency**
+- `sentence-transformers>=3.0.0` — Provides CrossEncoder (reranker) and SentenceTransformer (bge-m3)
+
+**Tests:** 967 total (73 new: reranker, local embeddings, provenance, citation logic; 0 regressions)
+
+**Migration:**
+- Existing episodic memories auto-re-indexed on first recall with new embedding model
+- Alias-based migration ensures zero-downtime switchover in production
+- Rollback supported by reverting alias to previous collection
+
+---
+
 ## [v0.4.3] — 2026-03-01
 ### Interactive Setup Wizard
 

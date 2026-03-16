@@ -11,7 +11,7 @@ import hashlib
 import logging
 from typing import TYPE_CHECKING, Any
 
-from engram.config import RecallConfig, RecallPipelineConfig, ScoringConfig
+from engram.config import RecallConfig, RecallPipelineConfig, RerankConfig, ScoringConfig
 from engram.models import ResolvedText, SearchResult
 
 if TYPE_CHECKING:
@@ -31,12 +31,14 @@ class ParallelSearcher:
         config: RecallPipelineConfig | None = None,
         scoring: ScoringConfig | None = None,
         recall: RecallConfig | None = None,
+        rerank: RerankConfig | None = None,
     ):
         self._episodic = episodic
         self._semantic = semantic
         self._config = config or RecallPipelineConfig()
         self._scoring = scoring
         self._recall = recall or RecallConfig()
+        self._rerank_config = rerank
 
     async def search(
         self,
@@ -80,7 +82,7 @@ class ParallelSearcher:
             except Exception as e:
                 logger.debug("Keyword search fallback failed: %s", e)
 
-        return self._fuse(all_results, top_k)
+        return self._fuse(all_results, top_k, query=search_query)
 
     async def _search_semantic(self, query: str, limit: int) -> list[SearchResult]:
         """Vector similarity search via Qdrant. Excludes consolidated originals."""
@@ -159,14 +161,20 @@ class ParallelSearcher:
             for n in nodes[:limit]
         ]
 
-    def _fuse(self, results: list[SearchResult], limit: int) -> list[SearchResult]:
-        """Deduplicate by content hash, keep highest score, return top K."""
+    def _fuse(self, results: list[SearchResult], limit: int, query: str = "") -> list[SearchResult]:
+        """Deduplicate by content hash, rerank if enabled, return top K."""
         seen: dict[str, SearchResult] = {}
         for r in results:
             key = hashlib.sha256(r.content.encode()).hexdigest()
             if key not in seen or r.score > seen[key].score:
                 seen[key] = r
         fused = sorted(seen.values(), key=lambda x: x.score, reverse=True)
+
+        # Cross-encoder reranking (if enabled and enough candidates)
+        if self._rerank_config and self._rerank_config.enabled and query:
+            from engram.recall.reranker import rerank
+            fused = rerank(query, fused, self._rerank_config)
+
         return fused[:limit]
 
 

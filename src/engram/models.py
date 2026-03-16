@@ -7,7 +7,7 @@ __all__ = [
     "EpisodicMemory",
     "AttributeDef", "NodeDef", "EdgeDef", "SchemaDefinition",
     "SemanticNode", "SemanticEdge", "ExtractionResult", "IngestResult",
-    "Entity", "ResolvedText", "SearchResult", "MemoryCandidate", "MeetingLedger",
+    "Entity", "ResolvedText", "SearchResult", "ProvenanceInfo", "MemoryCandidate", "MeetingLedger",
     "resolve_memory_type",
 ]
 
@@ -227,6 +227,13 @@ class SearchResult(BaseModel):
     importance: int = 5
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ProvenanceInfo(BaseModel):
+    """Provenance metadata for a memory — stored in EpisodicMemory.metadata."""
+    source_agent: str = ""        # "OpenClaw", "ClaudeCode", "api", "cli"
+    session_id: str = ""          # Session identifier from source
+    original_context: str = ""    # First 200 chars of surrounding context
 
 
 class MeetingLedger(BaseModel):

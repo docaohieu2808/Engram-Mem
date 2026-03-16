@@ -54,7 +54,9 @@ async def retrieve(
     elif parallel_search and episodic and graph:
         from engram.recall.parallel_search import ParallelSearcher
         from engram.recall.fusion_formatter import format_for_llm
-        searcher = ParallelSearcher(episodic, graph, recall_config, scoring_config, recall=recall)
+        from engram.config import load_config as _load_cfg
+        _rerank_cfg = _load_cfg().rerank
+        searcher = ParallelSearcher(episodic, graph, recall_config, scoring_config, recall=recall, rerank=_rerank_cfg)
         search_results = await searcher.search(search_question, limit=search_limit)
         _max_chars = 3000 if q_type == QuestionType.MIXED else 6000
         episodic_context = format_for_llm(search_results, max_chars=_max_chars) or "\n".join(

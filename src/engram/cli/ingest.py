@@ -60,7 +60,8 @@ async def do_ingest(file: Path, dry_run: bool, get_extractor, get_graph, get_epi
         per_content = extractor.filter_entities_for_content(content, entity_names, context_messages=ctx)
         if per_content:
             mt = classify_memory_type(content)
-            await episodic.remember(content, memory_type=mt, entities=per_content, priority=classify_priority(mt))
+            provenance_meta = {"provenance_agent": "cli", "provenance_session": file.stem}
+            await episodic.remember(content, memory_type=mt, entities=per_content, priority=classify_priority(mt), metadata=provenance_meta)
             episodic_count += 1
 
     return IngestResult(
@@ -71,7 +72,8 @@ async def do_ingest(file: Path, dry_run: bool, get_extractor, get_graph, get_epi
 
 
 async def do_ingest_messages(
-    messages: list[dict], get_extractor, get_graph, get_episodic, source: str = "",
+    messages: list[dict], get_extractor, get_graph, get_episodic,
+    source: str = "", session_id: str = "",
 ) -> IngestResult:
     """Ingest messages (called by watcher/server).
 
@@ -126,6 +128,18 @@ async def do_ingest_messages(
         role = msg.get("role", "")
         mt = classify_memory_type(content)
 
+        # Build provenance metadata
+        provenance_meta: dict[str, str] = {}
+        if source:
+            provenance_meta["provenance_agent"] = source
+        if session_id:
+            provenance_meta["provenance_session"] = session_id
+        # Context snippet from surrounding messages
+        ctx_msgs = messages[max(0, i - 1): min(len(messages), i + 2)]
+        ctx_snippet = " | ".join(m.get("content", "")[:100] for m in ctx_msgs if m.get("content"))[:200]
+        if ctx_snippet:
+            provenance_meta["provenance_context"] = ctx_snippet
+
         if extraction_ok and entity_names:
             # Entity-enriched: tag messages with matching entities
             ctx = messages[max(0, i - 2): min(len(messages), i + 3)]
@@ -134,16 +148,14 @@ async def do_ingest_messages(
             )
             pri = classify_priority(mt)
             if per_content:
-                await episodic.remember(content, memory_type=mt, entities=per_content, source=source, priority=pri)
+                await episodic.remember(content, memory_type=mt, entities=per_content, source=source, priority=pri, metadata=provenance_meta)
                 episodic_count += 1
             elif role == "user":
-                # Always store user messages even without entity match
-                await episodic.remember(content, memory_type=mt, source=source, priority=pri)
+                await episodic.remember(content, memory_type=mt, source=source, priority=pri, metadata=provenance_meta)
                 episodic_count += 1
         else:
-            # Extraction failed or no entities — store all messages plain
             pri = classify_priority(mt)
-            await episodic.remember(content, memory_type=mt, source=source, priority=pri)
+            await episodic.remember(content, memory_type=mt, source=source, priority=pri, metadata=provenance_meta)
             episodic_count += 1
 
     return IngestResult(

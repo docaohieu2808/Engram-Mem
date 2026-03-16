@@ -4,7 +4,7 @@ from __future__ import annotations
 
 __all__ = [
     "Config", "load_config", "save_config", "get_config_value", "set_config_value",
-    "ExtractionConfig", "RecallConfig", "SchedulerConfig",
+    "ExtractionConfig", "RecallConfig", "SchedulerConfig", "RerankConfig",
 ]
 
 import os
@@ -44,6 +44,10 @@ class EmbeddingConfig(BaseModel):
     # Key rotation strategy: "failover" (primary first, fallback on error)
     # or "round-robin" (rotate evenly across keys to spread quota)
     key_strategy: str = "failover"
+    # Local embedding for episodic store (bge-m3)
+    local_model: str = "BAAI/bge-m3"
+    local_dimensions: int = 1024
+    use_local_for_episodic: bool = False  # opt-in after migration
 
 
 class SemanticConfig(BaseModel):
@@ -175,7 +179,7 @@ class ExtractionConfig(BaseModel):
 
 class RecallConfig(BaseModel):
     """Recall pipeline tuning parameters."""
-    search_limit: int = 15
+    search_limit: int = 25  # over-fetch for reranking (was 15)
     entity_search_limit: int = 10
     provider_search_limit: int = 5
     entity_graph_depth: int = 2
@@ -231,11 +235,24 @@ class ResolutionConfig(BaseModel):
     llm_model: str = ""  # Empty = use llm.model
 
 
+class RerankConfig(BaseModel):
+    """Cross-encoder reranking configuration for recall pipeline."""
+    enabled: bool = True
+    model_name: str = "BAAI/bge-reranker-v2-m3"
+    batch_size: int = 16
+    min_candidates: int = 5       # skip reranking below this count
+    rerank_top_k: int = 8         # max results after reranking
+    rerank_threshold: float = 0.15  # minimum reranker score
+    fallback_top_k: int = 3       # fallback if threshold filters too aggressively
+    device: str = "cpu"           # "cpu" or "cuda"
+    max_length: int = 512         # CrossEncoder max_length
+
+
 class RecallPipelineConfig(BaseModel):
     """Recall pipeline orchestration settings."""
     enabled: bool = True
     parallel_search: bool = True
-    fusion_top_k: int = 10
+    fusion_top_k: int = 25  # over-fetch for reranking (was 10)
     fallback_threshold: float = 0.3  # keyword fallback if best score < this
 
 
@@ -327,6 +344,7 @@ class Config(BaseModel):
     consolidation: ConsolidationConfig = Field(default_factory=ConsolidationConfig)
     resolution: ResolutionConfig = Field(default_factory=ResolutionConfig)
     recall_pipeline: RecallPipelineConfig = Field(default_factory=RecallPipelineConfig)
+    rerank: RerankConfig = Field(default_factory=RerankConfig)
     feedback: FeedbackConfig = Field(default_factory=FeedbackConfig)
     ingestion: IngestionConfig = Field(default_factory=IngestionConfig)
     retrieval_audit: RetrievalAuditConfig = Field(default_factory=RetrievalAuditConfig)
@@ -382,6 +400,9 @@ _ENV_VAR_MAP: dict[str, tuple[str, str]] = {
     "EMBEDDING_MODEL": ("embedding", "model"),
     "EMBEDDING_PROVIDER": ("embedding", "provider"),
     "EMBEDDING_KEY_STRATEGY": ("embedding", "key_strategy"),
+    "EMBEDDING_LOCAL_MODEL": ("embedding", "local_model"),
+    "EMBEDDING_LOCAL_DIMENSIONS": ("embedding", "local_dimensions"),
+    "EMBEDDING_USE_LOCAL_FOR_EPISODIC": ("embedding", "use_local_for_episodic"),
     "SEMANTIC_PATH": ("semantic", "path"),
     "SEMANTIC_PROVIDER": ("semantic", "provider"),
     "SEMANTIC_DSN": ("semantic", "dsn"),
@@ -478,6 +499,12 @@ _ENV_VAR_MAP: dict[str, tuple[str, str]] = {
     "EVENT_BUS_ENABLED": ("event_bus", "enabled"),
     "EVENT_BUS_BACKEND": ("event_bus", "backend"),
     "EVENT_BUS_REDIS_URL": ("event_bus", "redis_url"),
+    "RERANK_ENABLED": ("rerank", "enabled"),
+    "RERANK_MODEL_NAME": ("rerank", "model_name"),
+    "RERANK_DEVICE": ("rerank", "device"),
+    "RERANK_TOP_K": ("rerank", "rerank_top_k"),
+    "RERANK_THRESHOLD": ("rerank", "rerank_threshold"),
+    "RERANK_FALLBACK_TOP_K": ("rerank", "fallback_top_k"),
 }
 
 def _get_section_models() -> dict[str, type[BaseModel]]:
@@ -514,6 +541,7 @@ def _get_section_models() -> dict[str, type[BaseModel]]:
         "retrieval_audit": RetrievalAuditConfig,
         "session": SessionConfig,
         "event_bus": EventBusConfig,
+        "rerank": RerankConfig,
     }
 
 
