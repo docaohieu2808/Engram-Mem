@@ -26,8 +26,8 @@ from qdrant_client.models import Distance, PointStruct, VectorParams
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("migrate")
 
-OLD_COLLECTION = "engram-memories"
-NEW_COLLECTION = "engram-memories-bge"
+OLD_COLLECTION = "engram-memory"  # matches config.yaml episodic.namespace
+NEW_COLLECTION = "engram-memory-bge"
 NEW_DIM = 1024
 BATCH_SIZE = 100
 
@@ -36,7 +36,9 @@ def get_client() -> QdrantClient:
     """Connect to Qdrant server using engram config."""
     from engram.config import load_config
     cfg = load_config().episodic
-    return QdrantClient(host=cfg.host, port=cfg.port, api_key=cfg.api_key or None)
+    # Use http:// URL to avoid SSL issues with API key on non-TLS servers
+    url = f"http://{cfg.host}:{cfg.port}"
+    return QdrantClient(url=url, api_key=cfg.api_key or None)
 
 
 def create_new_collection(client: QdrantClient) -> None:
