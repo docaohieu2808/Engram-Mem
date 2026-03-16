@@ -415,7 +415,7 @@ class _EpisodicCrudMixin:
 
             await self._detect_embedding_dim()
             embedding = await asyncio.to_thread(
-                _get_embeddings, self._embed_model, [content], self._embedding_dim,
+                get_embeddings_for_purpose, [content], "episodic"
             )
             result = await self._backend.query(
                 query_embeddings=embedding,

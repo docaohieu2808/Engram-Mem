@@ -156,7 +156,7 @@ class EmbeddingQueue:
 async def process_embedding_queue(store: Any, queue: "EmbeddingQueue | None" = None) -> dict[str, Any]:
     """Drain pending items: embed → store add → mark_done. Called by scheduler."""
     import asyncio
-    from engram.episodic.embeddings import _get_embeddings
+    from engram.episodic.embeddings import get_embeddings_for_purpose
     if queue is None:
         queue = get_embedding_queue()
     batch = queue.dequeue_batch()
@@ -170,7 +170,7 @@ async def process_embedding_queue(store: Any, queue: "EmbeddingQueue | None" = N
             await store._ensure_backend()
             await store._detect_embedding_dim()
             embeddings = await asyncio.to_thread(
-                _get_embeddings, store._embed_model, [content], store._embedding_dim
+                get_embeddings_for_purpose, [content], "episodic"
             )
             await store._backend.add(id=mid, embedding=embeddings[0], content=content, metadata=metadata)
             queue.mark_done(mid)
