@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from engram.episodic.decay import compute_activation_score
-from engram.episodic.embeddings import _get_embeddings
+from engram.episodic.embeddings import _get_embeddings, get_embeddings_for_purpose
 from engram.episodic.episodic_builder import _build_memory
 from engram.episodic.fts_sync import fts_search
 from engram.models import EpisodicMemory
@@ -44,7 +44,7 @@ class _EpisodicSearchMixin:
             await self._ensure_backend()
             await self._detect_embedding_dim()
             query_embedding = await asyncio.to_thread(
-                _get_embeddings, self._embed_model, [query], self._embedding_dim
+                get_embeddings_for_purpose, [query], "episodic"
             )
             coll_count = await self._backend.count()
             fetch_limit = min(limit + offset, coll_count or 1)

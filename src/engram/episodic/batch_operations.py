@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from engram.episodic.embeddings import _get_embeddings
+from engram.episodic.embeddings import _get_embeddings, get_embeddings_for_purpose
 from engram.episodic.episodic_builder import _canonicalize_entities
 from engram.episodic.fts_sync import fts_insert_batch
 from engram.models import MemoryType, resolve_memory_type
@@ -81,7 +81,7 @@ class _BatchMixin:
             await self._detect_embedding_dim()
             # Single batch embedding call
             embeddings = await asyncio.to_thread(
-                _get_embeddings, self._embed_model, documents, self._embedding_dim
+                get_embeddings_for_purpose, documents, "episodic"
             )
             new_dim = len(embeddings[0])
             if self._embedding_dim is not None and new_dim != self._embedding_dim:

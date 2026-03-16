@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from engram.episodic.embeddings import _get_embeddings
+from engram.episodic.embeddings import _get_embeddings, get_embeddings_for_purpose
 from engram.episodic.episodic_builder import (
     _build_memory,
     _canonicalize_entities,
@@ -139,7 +139,7 @@ class _EpisodicCrudMixin:
             await self._ensure_backend()
             await self._detect_embedding_dim()
             embeddings = await asyncio.to_thread(
-                _get_embeddings, self._embed_model, [content], self._embedding_dim
+                get_embeddings_for_purpose, [content], "episodic"
             )
             new_dim = len(embeddings[0])
             if self._embedding_dim is not None and new_dim != self._embedding_dim:
@@ -321,7 +321,7 @@ class _EpisodicCrudMixin:
         await self._detect_embedding_dim()
         try:
             embeddings = await asyncio.to_thread(
-                _get_embeddings, self._embed_model, [content], self._embedding_dim
+                get_embeddings_for_purpose, [content], "episodic"
             )
         except Exception as emb_exc:
             logger.warning(
