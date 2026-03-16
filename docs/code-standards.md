@@ -31,8 +31,12 @@ src/engram/
 ├── models.py                # Shared Pydantic models (MemoryType, etc.)
 ├── episodic/
 │   ├── __init__.py
-│   ├── store.py             # ChromaDB wrapper
-│   └── search.py            # Embedding & search
+│   ├── store.py             # EpisodicStore (Qdrant wrapper)
+│   ├── qdrant_backend.py    # Qdrant client
+│   ├── embeddings.py        # Gemini embedding API
+│   ├── episodic_search.py   # Vector + BM25 search
+│   ├── decay.py             # Ebbinghaus retention formula
+│   └── embedding_queue.py   # Async embedding retry queue
 ├── semantic/
 │   ├── __init__.py
 │   ├── backend.py           # Abstract interface

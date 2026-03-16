@@ -4,14 +4,14 @@
 
 Engram is a dual-memory AI system that enables agents to reason like humans by combining:
 
-1. **Episodic Memory** — Vector embeddings for semantic search (ChromaDB)
+1. **Episodic Memory** — Qdrant vector database (embedded or server) for semantic search + BM25 full-text
 2. **Semantic Memory** — Knowledge graphs for entity relationships (PostgreSQL/SQLite + NetworkX MultiDiGraph)
 3. **Reasoning Engine** — LLM synthesis connecting both stores (Gemini via litellm)
 4. **Federation Layer** — External memory providers (REST, File, Postgres, MCP) via smart query router
 
 All four interfaces (CLI, MCP, HTTP, WebSocket) share the same memory layers.
 
-**Version:** 0.4.3 | **Tests:** 972+ | **LOC:** ~7100+
+**Version:** 0.5.30 | **Tests:** 996+ | **Files:** 180 Python | **LOC:** ~10k+
 
 ---
 
@@ -43,7 +43,7 @@ All four interfaces (CLI, MCP, HTTP, WebSocket) share the same memory layers.
     │   (think, summarize, ingest)       │
     ├─────────────────┬──────────────────┤
     │  EpisodicStore  │  SemanticGraph   │
-    │  (ChromaDB)     │  (PG/SQLite+NX)  │
+    │  (Qdrant)       │  (PG/SQLite+NX)  │
     └─────────────────┴──────────────────┘
          │                        │
          ├─ Chunking             ├─ Nodes (entities)

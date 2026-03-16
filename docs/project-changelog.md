@@ -5,7 +5,7 @@ All notable changes to this project are documented here. Follows [Keep a Changel
 ---
 
 ## [v0.5.0] — 2026-03-16
-### NexusRAG-Inspired Recall Improvements
+### Advanced Recall & Dual Embeddings
 
 **Added**
 - **Cross-Encoder Reranking** (`src/engram/recall/reranker.py`)

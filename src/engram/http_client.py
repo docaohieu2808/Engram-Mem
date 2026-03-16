@@ -1,7 +1,7 @@
 """EngramHttpClient — async httpx-based client wrapping the Engram REST API.
 
 Usage:
-    async with EngramHttpClient("http://localhost:8000", api_key="secret") as client:
+    async with EngramHttpClient("http://localhost:8765", api_key="your-api-key") as client:
         mem_id = await client.remember("Visited Paris today")
         results = await client.recall("Paris trip")
         answer = await client.think("Where have I been recently?")

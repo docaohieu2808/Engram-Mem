@@ -1,9 +1,11 @@
 # Engram Codebase Summary
 
 ## Overview
-Engram v0.4.1 is a production-ready dual-memory AI agent system featuring modularized architecture (backend protocols, mixins, routers), pluggable episodic backends (embedded+HTTP ChromaDB), semantic graph lazy loading, distributed event bus (Redis), HTTP client SDK, plugin entry points, and intelligent recall pipeline. Combines episodic (vector) and semantic (NetworkX MultiDiGraph) memory, LLM reasoning, activation/consolidation, session lifecycle, terminal UI, advanced query processing, audit trail, resource-aware degradation, data constitution, background scheduler, temporal/pronoun resolution, feedback loop, fusion formatting, bidirectional WebSocket push, and performance benchmarking. ~6000+ LoC across 50+ modules, 894+ tests, Python 3.11+.
+Engram v0.5.30 is a production-ready dual-memory AI system for AI agents and IDEs. Combines episodic (Qdrant vector store) and semantic (NetworkX graph) memory with LLM reasoning (Gemini via litellm). Exposes CLI (Typer, 61 commands), MCP (Claude integration, 18 tools), HTTP API (FastAPI, /api/v1/), and WebSocket (real-time bidirectional). Enterprise features: multi-tenancy, JWT auth (optional), Redis caching, rate limiting, audit trail, resource tiers, data constitution (3-law governance), consolidation scheduler, federated knowledge (mem0, LightRAG, Graphiti), session tracking, and terminal UI.
 
-**Architecture highlights:** Pluggable backends (backend protocol), 6 episodic mixins (CRUD/search/maintenance/batch/FTS), 4 HTTP router modules, 2 event bus implementations (in-process/Redis), lazy-loaded semantic graphs, plugin architecture, standalone HTTP client SDK, 17 HTTP endpoints, 7 WebSocket commands.
+**Stats:** 180 Python files, 309 total files, 451k tokens, 996 tests, 61%+ coverage, Python 3.11+.
+
+**Key Components:** 61 CLI commands, 18 MCP tools, smart recall pipeline (entity/temporal resolution + parallel search), embedding queue with key rotation, Ebbinghaus decay, memory consolidation, health checks, OpenTelemetry observability.
 
 ---
 

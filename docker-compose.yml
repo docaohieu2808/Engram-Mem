@@ -30,7 +30,7 @@ services:
     environment:
       POSTGRES_DB: engram
       POSTGRES_USER: engram
-      POSTGRES_PASSWORD: engram
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
     volumes:
       - pg-data:/var/lib/postgresql/data
     healthcheck:

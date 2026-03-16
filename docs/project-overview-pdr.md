@@ -4,14 +4,14 @@
 
 Engram is a dual-memory AI agent system that thinks like humans. It combines:
 
-- **Episodic Memory** — Vector database (ChromaDB) for semantic similarity search over timestamped memories
+- **Episodic Memory** — Qdrant vector database for semantic similarity search + BM25 full-text, with topic-key upsert
 - **Semantic Memory** — Knowledge graph (PostgreSQL/SQLite + NetworkX) for typed entities and relationships
 - **Reasoning Engine** — LLM synthesis (Gemini) that connects episodic + semantic memory to answer questions
 - **Federation Layer** — External provider adapters (REST, File, Postgres, MCP) extending recall across services
 
 Exposes four interfaces: **CLI** (Typer), **MCP** (Claude integration), **HTTP API** (FastAPI), **WebSocket API** (real-time bidirectional).
 
-**Version:** 0.4.0 | **Status:** Enterprise-ready + Advanced Recall + Consolidation + TUI + Recall Pipeline + Brain Features + Intelligence Layer + WebSocket API + Benchmark Suite | **Tests:** 894+ | **License:** MIT
+**Version:** 0.5.30 | **Status:** Enterprise-ready, multi-surface (CLI/MCP/HTTP/WebSocket), federated knowledge, resource-aware | **Tests:** 996+ | **License:** MIT
 
 ---
 
@@ -46,28 +46,33 @@ Exposes four interfaces: **CLI** (Typer), **MCP** (Claude integration), **HTTP A
 - **Circuit breaker:** Providers auto-disable after consecutive errors; re-enable manually
 - **Plugin system:** Third-party adapters via `entry_points(group="engram.providers")`
 
-### Recall Pipeline (v0.3.1)
+### Recall Pipeline
 - **Query Decision:** Trivial message skip (ok, thanks, emoji)
-- **Entity Resolution:** Temporal (Vietnamese+English regex) + pronoun resolution (LLM with fallback)
-- **Parallel Search:** Multi-source (ChromaDB semantic + entity graph + keyword fallback) with fusion
-- **Learning Pipeline:** Feedback loop (±0.15/0.2 confidence), auto-delete after 3× negative + low confidence
+- **Entity Resolution:** Temporal (28 Vietnamese+English date patterns) + pronoun resolution (LLM fallback from graph context)
+- **Parallel Search:** Multi-source (Qdrant vector + BM25 + semantic graph + federated providers) with composite scoring
+- **Reranking:** BM25/cosine similarity blend + confidence adjustment
+- **Feedback Loop:** Confidence scoring (±0.15/-0.2), importance adjustment, auto-delete after 3× negative
 - **Auto-Memory Detection:** Detect save-worthy messages (Save: prefix, identity, preferences, decisions)
 - **Poisoning Guard:** Block prompt injection, special tokens, instruction overrides
-- **Auto-Consolidate:** Trigger consolidation after N messages (default 20)
+- **Entity-Gated Ingestion:** Only stores messages with extracted entities; filters noise
 - **Retrieval Audit:** JSONL log for all recall operations
-- **Benchmarking:** Run question sets, measure accuracy by type
 
-### Brain Features (v0.3.2)
-- **Memory Audit Trail:** Structured before/after log for every mutation — MODIFICATION_TYPES: memory_create, memory_delete, memory_update, metadata_update, config_change, batch_create, cleanup_expired
-- **Resource-Aware Retrieval:** ResourceMonitor with sliding window tracks LLM call success/failure; 4 tiers (FULL, STANDARD, BASIC, READONLY); BASIC returns raw results without synthesis; auto-recovery after 60s cooldown
-- **Data Constitution:** 3 laws (namespace isolation, no fabrication, audit rights); auto-creates ~/.engram/constitution.md on first load; SHA-256 tamper detection; compact prefix injected into every LLM prompt
-- **Consolidation Scheduler:** Asyncio recursive setTimeout pattern (overlap-safe); 3 default tasks (cleanup_expired daily, consolidate_memories 6h, decay_report daily); respects resource tier; state persisted to ~/.engram/scheduler_state.json; starts automatically with `engram watch`
+### Advanced Features
+- **Memory Audit Trail:** Structured JSONL log for every episodic mutation (create, update, delete, cleanup)
+- **Resource Tiers:** 4-tier LLM degradation (FULL → STANDARD → BASIC → READONLY) based on failure rate tracking; auto-recovery after 60s
+- **Data Constitution:** 3-law governance (namespace isolation, no fabrication, audit rights); SHA-256 tamper detection
+- **Consolidation Scheduler:** Background tasks (cleanup daily, consolidate 6h, decay daily); overlap-safe; state persisted; starts with `engram watch`
+- **Memory Consolidation:** LLM-driven clustering of related memories → summaries
+- **Ebbinghaus Decay:** Retention = e^(-r*t/(1+0.1*a)) — shows memory forgetting curve
+- **Federated Search:** Auto-discover + parallel query across mem0, LightRAG, Graphiti, custom REST/PG/MCP providers
+- **Session Tracking:** Remember context across CLI/MCP calls; `/api/v1/session` endpoints
 
-### Embedding & Key Rotation
-- **Model:** `gemini-embedding-001` exclusively (3072 dimensions)
-- **Key Rotation:** `GEMINI_API_KEY` + `GEMINI_API_KEY_FALLBACK` with configurable strategy
-- **Strategies:** `failover` (default — use primary, switch on failure) or `round-robin` (rotate evenly to spread quota)
-- **Config:** `embedding.key_strategy` in config.yaml or `GEMINI_KEY_STRATEGY` env var
+### Embeddings
+- **Primary:** Gemini embedding-001 (3072 dimensions) via litellm
+- **Fallback:** sentence-transformers local embeddings (bge-m3, etc.) for offline mode
+- **Key Rotation:** `GEMINI_API_KEY` + `GEMINI_API_KEY_FALLBACK`
+- **Strategies:** `failover` (default) or `round-robin` (spread quota)
+- **Retry Queue:** Async batching for failed embeddings; status via `engram queue-status`
 
 ### Benchmark Suite
 - **Runner:** `tests/benchmark_performance.py` — measures p50/p95/p99 latency per endpoint

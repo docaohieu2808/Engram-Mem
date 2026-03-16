@@ -2,7 +2,7 @@
 
 **Memory traces for AI agents — Think like humans.**
 
-[![PyPI](https://img.shields.io/pypi/v/engram-mem)](https://pypi.org/project/engram-mem/) ![Tests](https://img.shields.io/badge/tests-894%2B-brightgreen) ![Python](https://img.shields.io/badge/python-3.11%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+[![PyPI](https://img.shields.io/pypi/v/engram-mem)](https://pypi.org/project/engram-mem/) ![Tests](https://img.shields.io/badge/tests-996%2B-brightgreen) ![Python](https://img.shields.io/badge/python-3.11%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 Dual-memory AI system combining **episodic (vector)** + **semantic (graph)** memory with LLM reasoning. Entity-gated ingestion ensures only meaningful data is stored. Enterprise-ready with multi-tenancy, auth, caching, observability, and Docker deployment.
 
@@ -238,102 +238,119 @@ curl -X POST http://localhost:8765/api/v1/meeting-ledger \
 
 ---
 
-## CLI Reference
+## CLI Reference (61 Commands)
 
 ### Memory Operations
-
 ```bash
-# Store with options
-engram remember <content> [--type fact|decision|preference|todo|error|context|workflow|meeting_ledger]
-                          [--priority 1-10] [--tags tag1,tag2] [--expires 2h|1d|7d]
-                          [--topic-key unique-key]
-
-# Search
+engram remember <content> [--type fact|decision|...] [--priority 1-10]
+                          [--tags tag1,tag2] [--expires 7d] [--topic-key key]
 engram recall <query> [--limit 5] [--type <type>] [--tags tag1,tag2]
-              [--resolve-entities] [--resolve-temporal]
-
-# Smart query (auto-routes to recall or think)
-engram ask <question>
-
-# Reason across all memory
-engram think <question>
+engram ask <question>               # Smart query (auto-routes)
+engram think <question>             # LLM reasoning
 engram summarize [--count 20] [--save]
+engram decay [--limit 20]           # Ebbinghaus retention curve
 ```
 
 ### Semantic Graph
-
 ```bash
-engram add node <name> --type <NodeType>
-engram add edge <from_key> <to_key> --relation <relation>
+engram add node <name> --type <type>
+engram add edge <from> <to> --relation <relation>
 engram remove node <key>
-engram query [<keyword>] [--type <NodeType>] [--related-to <name>] [--format table|json]
+engram remove edge <key>
+engram query [keyword] [--type X] [--related-to Y] [--format table|json]
 engram autolink-orphans [--apply] [--min-co-mentions 3]
-engram graph                          # Open interactive graph visualization
 ```
 
 ### Browse & Export
-
 ```bash
-engram status                         # Summary counts
-engram dump                           # Rich tables: all memories, nodes, edges
-engram dump --format json             # Full JSON export
-engram decay [--limit 20]             # Ebbinghaus decay report
+engram status                       # Memory counts
+engram dump [--format table|json]   # All memories + graph
+engram health                       # Full system health check
+engram tui                          # Terminal UI (interactive browser)
+engram graph [--port 8100]          # Open visualization browser
 ```
 
-### System
-
+### Data Management
 ```bash
-engram init                           # Initialize config
-engram start                          # Start daemon (HTTP server + watcher)
-engram stop                           # Stop daemon
-engram serve [--host 0.0.0.0] [--port 8765]  # Foreground server
-engram watch [--daemon]               # Watch inbox + OpenClaw sessions
-engram health                         # Full system health check
-engram resource-status                # Resource tier (FULL/STANDARD/BASIC/READONLY)
-engram queue-status                   # Embedding queue status
-engram scheduler-status               # Background task schedule
-engram constitution-status            # 3-law governance + SHA-256 hash
+engram cleanup                      # Delete expired memories
+engram consolidate [--limit 50]     # LLM clustering + summarization
+engram ingest <file.json> [--dry-run]  # Extract entities + remember
+engram backup                       # Export snapshot
+engram restore <file>               # Import snapshot
+engram migrate <file>               # Import legacy JSON
 ```
 
-### Maintenance
-
+### Session & Feedback
 ```bash
-engram cleanup                        # Delete expired memories
-engram consolidate [--limit 50]       # LLM-driven memory consolidation
-engram ingest <file.json> [--dry-run] # Ingest chat JSON
-engram backup                         # Export memory snapshot
-engram restore <file>                 # Import snapshot
-engram config show / get <key> / set <key> <value>
+engram session-start
+engram session-end
 engram feedback <id> --positive|--negative
+engram resolve <query>              # Pronoun + temporal resolution
+engram audit [--limit 50]           # Retrieval audit log
+```
+
+### Server & Capture
+```bash
+engram init                         # Zero-config setup
+engram start                        # Start daemon (HTTP server + watcher)
+engram stop                         # Stop daemon
+engram logs [--tail 50]             # Show logs
+engram serve [--host 0.0.0.0] [--port 8765]  # Foreground HTTP server
+engram watch [--daemon]             # Watch inbox + OpenClaw/Claude Code sessions
+```
+
+### Configuration & Setup
+```bash
+engram setup                        # Interactive IDE connector wizard
+engram config show|get <key>|set <key> <value>
+engram auth                         # API key management
+engram providers discover           # Auto-discover external providers
+engram providers list|add|remove    # Manage providers
+engram schema                       # Manage semantic schemas
+```
+
+### Monitoring & Status
+```bash
+engram queue-status                 # Embedding queue health
+engram resource-status              # LLM tier (FULL/STANDARD/BASIC/READONLY)
+engram constitution-status          # 3-law governance + SHA-256
+engram scheduler-status             # Background task schedule
+engram benchmark [--quick]          # Run recall accuracy benchmark
+```
+
+### Daemon & Advanced
+```bash
+engram autostart                    # Install systemd user services
+engram sync [--direction]           # Git-friendly memory sharing
 ```
 
 ---
 
-## MCP Tools
+## MCP Tools (21 Total)
 
 | Tool | Description |
 |------|-------------|
-| `engram_remember` | Store memory with type, priority, tags, namespace |
-| `engram_recall` | Search episodic memories (compact format by default) |
-| `engram_think` | Reason across episodic + semantic memory via LLM |
-| `engram_status` | Show memory statistics |
-| `engram_get_memory` | Retrieve full memory content by ID or prefix |
-| `engram_timeline` | Chronological context around a memory |
-| `engram_add_entity` | Add entity node to knowledge graph |
-| `engram_add_relation` | Add relationship edge between entities |
-| `engram_query_graph` | Query knowledge graph |
-| `engram_ingest` | Dual ingest: extract entities + store memories |
-| `engram_meeting_ledger` | Record structured meeting (decisions, action items) |
-| `engram_feedback` | Record positive/negative feedback on memories |
-| `engram_auto_feedback` | Auto-detect feedback from conversation |
+| `engram_remember` | Store episodic memory with type, priority, tags, expires, topic-key |
+| `engram_recall` | Search episodic memories (compact or full) with filtering |
+| `engram_get_memory` | Retrieve full memory content by ID or 8-char prefix |
+| `engram_timeline` | Get chronological context around a memory (±window minutes) |
 | `engram_cleanup` | Delete all expired memories |
-| `engram_cleanup_dedup` | Deduplicate similar memories by cosine similarity |
-| `engram_summarize` | Summarize recent N memories via LLM |
+| `engram_cleanup_dedup` | Deduplicate similar memories by cosine similarity threshold |
+| `engram_ingest` | Dual ingest: extract entities + store memories from chat |
+| `engram_feedback` | Record positive/negative feedback (adjusts confidence) |
+| `engram_auto_feedback` | Auto-detect feedback sentiment from text |
+| `engram_think` | Reason across episodic + semantic memory via LLM |
+| `engram_ask` | Smart query — auto-routes to recall or think based on intent |
+| `engram_summarize` | Summarize recent N memories into insights via LLM |
+| `engram_add_entity` | Add/update entity node to knowledge graph |
+| `engram_add_relation` | Add/update relationship edge between entities |
+| `engram_query_graph` | Query knowledge graph (keyword, type, related-to) |
+| `engram_meeting_ledger` | Record structured meeting (decisions, action items, attendees) |
+| `engram_status` | Show memory statistics (episodic count, semantic nodes/edges) |
 | `engram_session_start` | Begin new conversation session |
-| `engram_session_end` | End active session with optional summary |
+| `engram_session_end` | End active session |
 | `engram_session_summary` | Get summary of completed session |
 | `engram_session_context` | Retrieve memories from active session |
-| `engram_ask` | Smart query — auto-routes to recall or think |
 
 ---
 
@@ -391,25 +408,64 @@ audit:
 
 Start server: `engram serve [--host 0.0.0.0] [--port 8765]`
 
+**Health & Info:**
+
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| `GET` | `/health` | Liveness check |
-| `GET` | `/health/ready` | Readiness probe |
-| `POST` | `/api/v1/remember` | Store episodic memory |
-| `GET` | `/api/v1/recall` | Search memories (`?query=X&limit=5&offset=0`) |
-| `POST` | `/api/v1/think` | LLM reasoning across episodic + semantic |
-| `GET` | `/api/v1/query` | Graph search (`?keyword=X&node_type=Y&related_to=Z`) |
-| `GET` | `/api/v1/memories` | List/filter memories with pagination |
-| `GET` | `/api/v1/memories/export` | Export memories as JSON |
-| `POST` | `/api/v1/meeting-ledger` | Record structured meeting |
-| `POST` | `/api/v1/ingest` | Extract entities + store memories |
-| `POST` | `/api/v1/feedback` | Record feedback on a memory |
-| `GET` | `/api/v1/graph/data` | Graph data JSON for visualization |
-| `GET` | `/graph` | Interactive graph visualization UI |
-| `POST` | `/api/v1/cleanup` | Delete expired memories (admin) |
-| `POST` | `/api/v1/cleanup/dedup` | Deduplicate memories (admin) |
-| `POST` | `/api/v1/summarize` | LLM summary of recent memories (admin) |
-| `GET` | `/api/v1/status` | Memory statistics |
+| GET | `/health` | Liveness check |
+| GET | `/health/ready` | Readiness probe |
+| GET | `/graph` | Interactive graph UI |
+
+**Core Operations** (`/api/v1/`):
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/remember` | Store episodic memory |
+| GET | `/recall` | Search memories (`?query=X&limit=5`) |
+| POST | `/think` | LLM reasoning across episodic + semantic |
+| GET | `/query` | Graph search (`?keyword=X&node_type=Y&related_to=Z`) |
+| POST | `/ingest` | Extract entities + store memories |
+| POST | `/meeting-ledger` | Record structured meeting |
+| POST | `/feedback` | Record memory feedback |
+
+**Memory Management** (`/api/v1/`):
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/memories` | List/filter with pagination |
+| GET | `/memories/{id}` | Get single memory |
+| PUT | `/memories/{id}` | Update memory |
+| DELETE | `/memories/{id}` | Delete memory |
+| GET | `/memories/export` | Export all as JSON |
+| POST | `/memories/bulk-delete` | Batch delete |
+
+**Semantic Graph** (`/api/v1/`):
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/graph/data` | Graph data (nodes + edges) for vis.js |
+| POST | `/graph/nodes` | Add/update node |
+| PUT | `/graph/nodes/{key}` | Update node |
+| DELETE | `/graph/nodes/{key}` | Delete node |
+| POST | `/graph/edges` | Add/update edge |
+| DELETE | `/graph/edges` | Delete edge |
+| GET | `/feedback/history` | Feedback history |
+
+**Admin** (`/api/v1/`):
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/cleanup` | Delete expired memories |
+| POST | `/cleanup/dedup` | Deduplicate memories |
+| POST | `/auth/token` | Get JWT token |
+| GET | `/providers` | List active providers |
+| GET | `/audit/log` | Retrieval audit log |
+| GET | `/scheduler/tasks` | Scheduler status |
+| POST | `/scheduler/tasks/{name}/run` | Run task now |
+| POST | `/benchmark/run` | Run benchmark |
+| GET | `/config` | Get config |
+| PUT | `/config` | Update config |
+| GET | `/status` | Memory statistics |
 
 ---
 

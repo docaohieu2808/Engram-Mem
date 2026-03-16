@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 import time
 from unittest.mock import AsyncMock, patch
 
@@ -50,10 +51,10 @@ def client_no_auth(mock_episodic, mock_graph, mock_engine):
     return TestClient(app, follow_redirects=True)
 
 
-SECRET = "super-secret-key-for-testing-only-32chars"
+SECRET = secrets.token_hex(16) + secrets.token_hex(16)  # 64 chars, generated per run
 
 
-ADMIN_SECRET = "admin-secret-for-testing-only-32chars"
+ADMIN_SECRET = secrets.token_hex(16) + secrets.token_hex(16)
 
 
 def _make_config(enabled: bool = True, secret: str = SECRET, admin_secret: str = ADMIN_SECRET):
