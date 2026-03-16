@@ -1,6 +1,10 @@
-# engram
+<p align="center">
+  <img src="docs/landing/assets/engram-logo.png" alt="engram" width="300">
+</p>
 
-**Memory traces for AI agents — Think like humans.**
+<p align="center">
+  <strong>Persistent memory for AI agents</strong>
+</p>
 
 [![PyPI](https://img.shields.io/pypi/v/engram-mem)](https://pypi.org/project/engram-mem/) ![Tests](https://img.shields.io/badge/tests-996%2B-brightgreen) ![Python](https://img.shields.io/badge/python-3.11%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
