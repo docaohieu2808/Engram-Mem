@@ -165,6 +165,7 @@ class QdrantBackend:
         qdrant_filter = _build_qdrant_filter(where) if where else None
         all_ids, all_docs, all_metas, all_dists, all_embeddings = [], [], [], [], []
         for qe in query_embeddings:
+            logger.info("QdrantBackend.query: vector dim=%d, collection=%s", len(qe), self._col())
             _resp = await asyncio.to_thread(
                 self._client.query_points,
                 collection_name=self._col(), query=qe, limit=n_results,
